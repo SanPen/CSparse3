@@ -26,19 +26,336 @@ CSparse.py: a Concise Sparse matrix Python package
 """
 
 from sys import stdout
+from collections import Iterable
+
+# "cimport" is used to import special compile-time information
+# about the numpy module (this is stored in a file numpy.pxd which is
+# currently part of the Cython distribution).
+cimport numpy as np
+import numpy as np
+
+from cpython cimport array as c_array
+from array import array
+cimport cython
+
+@cython.boundscheck(False) # turn off bounds-checking for entire function
+@cython.wraparound(False)  # turn off negative index wrapping for entire function
+
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+
+class TripletsMat:
+
+    def __init__(self, m=0, n=0, nz_max=0):
+        # maximum number of entries
+        self.nzmax = max(nz_max, 1)
+
+        # number of rows
+        self.m = m
+
+        # number of columns
+        self.n = n
+
+        # column pointers (size nzmax)
+        self.column = ialloc(nz_max)
+
+        # row indices, size nzmax
+        self.rows = ialloc(nz_max)
+
+        # numerical values, size nzmax
+        self.data = xalloc(nz_max)
+
+        # # of entries in triplet matrix, -1 for compressed-col
+        self.nz = len(self.data)
+
+    def __getitem__(self, key):
+
+        if isinstance(key, tuple):
+
+            if isinstance(key[0], int) and isinstance(key[1], int):
+
+                return self.try_get(i=key[0], j=key[1])
+
+            elif isinstance(key[0], int) and isinstance(key[1], slice):
+
+                k = 0
+                value = [0] * (key[0].stop - key[0].start)
+                for j in range(key[0].start, key[0].stop, 1):
+                    value[k] = self.try_get(i=key[0], j=j)
+                    k += 1
+                return value
+
+            elif isinstance(key[0], slice) and isinstance(key[1], int):
+
+                k = 0
+                value = [0] * (key[1].stop - key[1].start)
+                for i in range(key[1].start, key[1].stop, 1):
+                    value[k] = self.try_get(i=i, j=key[1])
+                    k += 1
+                return value
+
+            elif isinstance(key[0], slice) and isinstance(key[1], slice):
+                pass
+
+            elif isinstance(key[0], int) and isinstance(key[1], Iterable):
+                pass
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], int):
+                pass
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], Iterable):
+                pass
+
+        else:
+            pass
+
+    def __setitem__(self, key, value):
+        """
+        Set values in the matrix
+        :param key: tuple indicating how to access rows or columns
+        :param value: value or array to set in the matrix
+        """
+        if isinstance(key,  tuple):
+
+            if isinstance(key[0], int) and isinstance(key[1], int):  # [i, j]
+
+                self.insert_or_replace(i1=key[0], j1=key[1], value=value)
+
+            elif isinstance(key[0], int) and isinstance(key[1], slice):   # [i, j:k]
+
+                if key[1].start is None and key[1].stop is None:
+                    a = 0
+                    b = self.n
+                else:
+                    a = key[1].start
+                    b = key[1].stop
+
+                if isinstance(value, Iterable):
+                    k = 0
+                    for j in range(a, b, 1):
+                        self.insert_or_replace(i1=key[0], j1=j, value=value[k])
+                        k += 1
+                else:
+                    k = 0
+                    for j in range(a, b, 1):
+                        self.insert_or_replace(i1=key[0], j1=j, value=value)
+                        k += 1
+
+            elif isinstance(key[0], slice) and isinstance(key[1], int):   # [i:k, j]
+
+                if key[0].start is None and key[0].stop is None:
+                    a = 0
+                    b = self.m
+                else:
+                    a = key[0].start
+                    b = key[0].stop
+
+                if isinstance(value, Iterable):
+                    k = 0
+                    for i in range(a, b, 1):
+                        self.insert_or_replace(i1=i, j1=key[1], value=value[k])
+                        k += 1
+                else:
+                    k = 0
+                    for i in range(a, b, 1):
+                        self.insert_or_replace(i1=i, j1=key[1], value=value)
+                        k += 1
+
+            elif isinstance(key[0], slice) and isinstance(key[1], slice):   # [i:l, j:k]
+
+                if key[0].start is None and key[0].stop is None:
+                    a = 0
+                    b = self.m
+                else:
+                    a = key[0].start
+                    b = key[0].stop
+
+                if key[1].start is None and key[1].stop is None:
+                    c = 0
+                    d = self.n
+                else:
+                    c = key[1].start
+                    d = key[1].stop
+
+                if isinstance(value, Iterable):
+                    k = 0
+                    for i in range(a, b, 1):
+                        l = 0
+                        for j in range(c, d, 1):
+                            self.insert_or_replace(i1=i, j1=j, value=value[k, l])
+                            l += 1
+                        k += 1
+                else:
+                    for i in range(a, b, 1):
+                        for j in range(c, d, 1):
+                            self.insert_or_replace(i1=i, j1=j, value=value)
+
+            elif isinstance(key[0], int) and isinstance(key[1], Iterable):   # [i, [d, e, f]]
+
+                if isinstance(value, Iterable):
+                    k = 0
+                    for j in key[1]:
+                        self.insert_or_replace(i1=key[0], j1=j, value=value[k])
+                        k += 1
+                else:
+                    k = 0
+                    for j in key[1]:
+                        self.insert_or_replace(i1=key[0], j1=j, value=value)
+                        k += 1
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], int):   # [[a, b, c], j]
+
+                if isinstance(value, Iterable):
+                    k = 0
+                    for i in key[0]:
+                        self.insert_or_replace(i1=i, j1=key[1], value=value[k])
+                        k += 1
+                else:
+                    k = 0
+                    for i in key[0]:
+                        self.insert_or_replace(i1=i, j1=key[1], value=value)
+                        k += 1
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], Iterable):   # [[a, b, c], [d, e, f]]
+
+                if key[0].start is None and key[0].stop is None:
+                    a = 0
+                    b = self.m
+                else:
+                    a = key[0].start
+                    b = key[0].stop
+
+                if key[1].start is None and key[1].stop is None:
+                    c = 0
+                    d = self.n
+                else:
+                    c = key[1].start
+                    d = key[1].stop
+
+                if isinstance(value, Iterable):
+                    k = 0
+                    for i in key[0]:
+                        l = 0
+                        for j in key[1]:
+                            self.insert_or_replace(i1=i, j1=j, value=value[k, l])
+                            l += 1
+                        k += 1
+                else:
+                    for i in key[0]:
+                        for j in key[1]:
+                            self.insert_or_replace(i1=i, j1=j, value=value)
+
+            else:  # other stuff that is not supported
+                pass
+
+        else:
+            pass  # the key must always be a tuple
+
+    def insert_or_replace(self, i1, j1, value):
+        """
+        Insert or replace
+        :param i1: row index
+        :param j1: column index
+        :param value: value
+        """
+        try:
+            i = self.rows.index(i1)
+            try:
+                j = self.column.index(j1)
+                if i == j:  # the element was there already
+                    self.data[i] = value
+                else:
+                    self.insert(i=i1, j=j1, value=value)
+            except ValueError:
+                self.insert(i=i1, j=j1, value=value)
+        except ValueError:
+            self.insert(i=i1, j=j1, value=value)
+
+    def try_get(self, i, j):
+        """
+
+        :param i:
+        :param j:
+        :return:
+        """
+        try:
+            i = self.rows.index(i)
+
+            try:
+                j = self.column.index(j)
+
+                if i == j:  # the element was there already
+                    return self.data[i]
+                else:
+                    return 0.0
+
+            except ValueError:
+                return 0.0
+
+        except ValueError:
+            return 0.0
+
+    def __str__(self) -> str:
+        """
+        String representation
+        :return: string
+        """
+        a = self.to_dense()
+        val = "Matrix[" + ("%d" % self.m) + "][" + ("%d" % self.n) + "]\n"
+        rows = self.m
+        cols = self.n
+        for i in range(0, rows):
+            for j in range(0, cols):
+                x = a[i][j]
+                if x is not None:
+                    if x == 0:
+                        val += '0' + ' ' * 10
+                    else:
+                        val += "%6.8f " % x
+                else:
+                    val += ""
+            val += '\n'
+
+        return val
+
+    def insert(self, i, j, value):
+        """
+        Insert triplet
+        :param i: row index
+        :param j: column index
+        :param value: value
+        """
+        self.rows.append(i)
+        self.column.append(j)
+        self.data.append(value)
+        self.nz = len(self.data)
+
+    def to_csc(self) -> "CscMat":
+        """
+        Return the CSC version of this matrix
+        :return: CscMat matrix
+        """
+        return cs_compress(self)
+
+    def to_dense(self):
+        """
+        Pass this matrix to a dense 2D array
+        :return: list of lists
+        """
+        val = [[0 for x in range(self.n)] for y in range(self.m)]
+        for i, j, x in zip(self.rows, self.column, self.data):
+            val[i][j] = x
+        return val
 
 
 class CscMat:
     """
     Matrix in compressed-column or triplet form.
     """
-    def __init__(self, m=0, n=0, nz_max=0, values=None, triplet=False):
+    def __init__(self, m=0, n=0, nz_max=0):
         """
         @param m: number of rows
         @param n: number of columns
         @param nz_max: maximum number of entries
-        @param values: allocate pattern only if false, values and pattern otherwise
-        @param triplet: compressed-column if false, triplet form otherwise
         """
 
         # maximum number of entries
@@ -51,16 +368,16 @@ class CscMat:
         self.n = n
 
         # column pointers (size n+1) or col indices (size nzmax)
-        self.indptr = ialloc(nz_max) if triplet else ialloc(n + 1)
+        self.indptr = ialloc(n + 1)
 
         # row indices, size nzmax
         self.indices = ialloc(nz_max)
 
         # numerical values, size nzmax
-        self.data = xalloc(nz_max) if values else None
+        self.data = xalloc(nz_max)
 
         # # of entries in triplet matrix, -1 for compressed-col
-        self.nz = 0 if triplet else -1  # allocate triplet or comp.col
+        self.nz = -1  # allocate triplet or comp.col
 
     def __getitem__(self, key):
         pass
@@ -181,21 +498,17 @@ class CscMat:
             return False
 
     def __le__(self, other) -> "CscMat":
-        pass
+        return False
 
     def __ge__(self, other) -> "CscMat":
-        pass
+        return False
 
     def to_dense(self):
         """
         Pass this matrix to a dense 2D array
         :return: list of lists
         """
-        val = [[0 for x in range(self.n)] for y in range(self.m)]
-        for j in range(self.n):
-            for p in range(self.indptr[j], self.indptr[j + 1]):
-                i = self.indices[p]
-                val[i][j] = self.data[p]
+        val = csc_to_dense(self.m, self.n, self.indptr, self.indices, self.data)
         return val
 
     def dot(self, other) -> "CscMat":
@@ -205,7 +518,6 @@ class CscMat:
         :return:
         """
         return cs_multiply(self, other)
-
 
     def t(self):
         return cs_transpose(self)
@@ -228,6 +540,7 @@ class CscMat:
         mat.indptr = self.indptr.copy()
         mat.nzmax = self.nzmax
         return mat
+
 
 def CS_CSC(A: CscMat):
     """
@@ -257,20 +570,20 @@ def CS_UNFLIP(i):
     return CS_FLIP(i) if i < 0 else i
 
 
-def CS_MARKED(w, j):
-    return w[j] < 0
+# def CS_MARKED(w, j):
+#     return w[j] < 0
+#
+#
+# cdef CS_MARK(w, j):
+#     w[j] = CS_FLIP(w[j])
 
 
-def CS_MARK(w, j):
-    w[j] = CS_FLIP(w[j])
-
-
-def ialloc(n):
-    return [0] * n
+cdef ialloc(n):
+    return np.empty([n], dtype=np.int)
 
 
 def xalloc(n):
-    return [0.0] * n
+    return np.empty([n], dtype=np.double)
 
 
 def cs_spalloc(m, n, nzmax, values, triplet):
@@ -348,7 +661,7 @@ def cs_cumsum(p, c, n):
     return int(nz2)               # return sum (c [0..n-1])
 
 
-def cs_compress(T: CscMat):
+def cs_compress(T: TripletsMat):
     """
     C = compressed-column form of a triplet matrix T. The columns of C are
     not sorted, and duplicate entries may be present in C.
@@ -359,7 +672,7 @@ def cs_compress(T: CscMat):
     if not CS_TRIPLET(T):
         return None  # check inputs
     m, n = T.m, T.n
-    Ti, Tj, Tx, nz = T.indices, T.indptr, T.data, T.nz
+    Ti, Tj, Tx, nz = T.rows, T.column, T.data, T.nz
     C = cs_spalloc(m, n, nz, Tx is not None, False)  # allocate result
     w = ialloc(n)  # get workspace
     Cp = C.indptr
@@ -489,29 +802,29 @@ def cs_add(A: CscMat, B: CscMat, alpha, beta):
     @return: C=alpha*A + beta*B, null on error
     """
     nz = 0
-    # if not CS_CSC(A) or not CS_CSC(B):
-    #     return None  # check inputs
+    if not CS_CSC(A) or not CS_CSC(B):
+        return None  # check inputs
     if A.m != B.m or A.n != B.n:
         return None
     m, anz, n, Bp, Bx = A.m, A.indptr[A.n], B.n, B.indptr, B.data
     bnz = Bp[n]
     w = ialloc(m)  # get workspace
     values = A.data is not None and Bx is not None
-    x = xalloc(m) if values else None # get workspace
+    x = xalloc(m) if values else None  # get workspace
     C = cs_spalloc(m, n, anz + bnz, values, False)  # allocate result
-    Cp, Ci, Cx = C.indptr, C.indices, C.data
+    # Cp, Ci, Cx = C.indptr, C.indices, C.data
     for j in range(n):
-        Cp[j] = nz  # column j of C starts here
+        C.indptr[j] = nz  # column j of C starts here
         nz = cs_scatter(A, j, alpha, w, x, j + 1, C, nz)  # alpha*A(:,j)
         nz = cs_scatter(B, j, beta, w, x, j + 1, C, nz)  # beta*B(:,j)
         if values:
-            for p in range(Cp[j], nz):
-                Cx[p] = x[Ci[p]]
-    Cp[n] = nz  # finalize the last column of C
+            for p in range(C.indptr[j], nz):
+                C.data[p] = x[C.indices[p]]
+    C.indptr[n] = nz  # finalize the last column of C
     return C  # success; free workspace, return C
 
 
-def cs_multiply(A: CscMat, B: CscMat):
+cpdef cs_multiply(A: CscMat, B: CscMat):
     """
     Sparse matrix multiplication, C = A*B
 
@@ -520,22 +833,33 @@ def cs_multiply(A: CscMat, B: CscMat):
     @return: C = A*B, null on error
     """
     nz = 0
-    # if not CS_CSC(A) or not CS_CSC(B):
-    #     return None # check inputs
+    if not CS_CSC(A) or not CS_CSC(B):
+        return None # check inputs
     if A.n != B.m:
         return None
-    m = A.m
-    anz = A.indptr[A.n]
-    n, Bp, Bi, Bx = B.n, B.indptr, B.indices, B.data
-    bnz = Bp[n]
-    w = ialloc(m)  # get workspace
+
+    cdef unsigned int m = A.m
+    cdef unsigned int n = B.n
+
+    cdef unsigned int anz = A.indptr[A.n]
+
+    cdef c_array.array Bp = B.indptr
+    cdef c_array.array Bi = B.indices
+    cdef c_array.array Bx = B.data
+    cdef unsigned int  bnz = Bp[n]
+    cdef c_array.array w = ialloc(m)  # get workspace
+
     values = (A.data is not None) and (Bx is not None)
     x = xalloc(m) if values else None  # get workspace
     C = cs_spalloc(m, n, anz + bnz, values, False)  # allocate result
-    Cp = C.indptr
+
+    cdef c_array.array Cp = C.indptr
+    cdef c_array.array Ci
+    cdef c_array.array Cx
+
     for j in range(n):
         if nz + m > C.nzmax:
-            cs_sprealloc(C, 2 * (C.nzmax) + m)
+            cs_sprealloc(C, 2 * C.nzmax + m)
         Ci = C.indices
         Cx = C.data  # C.i and C.x may be reallocated
         Cp[j] = nz  # column j of C starts here
@@ -546,10 +870,11 @@ def cs_multiply(A: CscMat, B: CscMat):
                 Cx[p] = x[Ci[p]]
     Cp[n] = nz  # finalize the last column of C
     cs_sprealloc(C, 0)  # remove extra space from C
+
     return C
 
 
-def cs_transpose(A: CscMat, values: bool=True) -> CscMat:
+def cs_transpose(A: CscMat, values=True) -> CscMat:
     """
     Computes the transpose of a sparse matrix, C =A';
 
@@ -557,8 +882,8 @@ def cs_transpose(A: CscMat, values: bool=True) -> CscMat:
     @param values: pattern only if false, both pattern and values otherwise
     @return: C=A', null on error
     """
-    # if not CS_CSC(A):
-    #     return None  # check inputs
+    if not CS_CSC(A):
+        return None  # check inputs
     m, n, Ap, Ai, Ax = A.m, A.n, A.indptr, A.indices, A.data
     C = cs_spalloc(n, m, Ap[n], values and (Ax is not None), False)  # allocate result
     w = ialloc(m)  # get workspace
@@ -596,36 +921,73 @@ def cs_norm(A: CscMat):
     return norm
 
 
-def cs_print(A: CscMat, brief):
+cdef tuple sub_matrix(int m, int n, int nz, int[:] indptr, int[:] indices, double[:] data,
+                      int[:] rows, int[:] cols):
     """
-    Prints a sparse matrix.
 
-    @param A: sparse matrix (triplet ot column-compressed)
-    @param brief: print all of A if false, a few entries otherwise
-    @return: true if successful, false on error
+    :param m: number of rows
+    :param n: number of columns
+    :param nz: number of non-zeros
+    :param indptr:
+    :param indices:
+    :param data:
+    :param rows: row indices to filter
+    :param cols: column indices to filter
+    :return:
     """
-    if A is None:
-        stdout.write("(null)\n")
-        return False
-    m, n, Ap, Ai, Ax = A.m, A.n, A.indptr, A.indices, A.data
-    nzmax = A.nzmax
-    nz = A.nz
-    # stdout.write("CSparse.py Version %d.%d.%d, %s.  %s\n" % (CS_VER, CS_SUBVER,
-    #         CS_SUBSUB, CS_DATE, CS_COPYRIGHT))
-    if nz < 0:
-        stdout.write("%d-by-%d, nzmax: %d nnz: %d, 1-norm: %g\n" % (m, n, nzmax, Ap[n], cs_norm(A)))
-        for j in range(n):
-            stdout.write("    col %d : locations %d to %d\n" % (j, Ap[j], Ap[j + 1] - 1))
-            for p in range(Ap[j], Ap[j + 1]):
-                stdout.write("      %d : %g\n" % (Ai[p], Ax[p] if Ax is not None else 1))
-                if brief and p > 20:
-                    stdout.write("  ...\n")
-                    return True
-    else:
-        stdout.write("triplet: %d-by-%d, nzmax: %d nnz: %d\n" % (m, n, nzmax, nz))
-        for p in range(nz):
-            stdout.write("    %d %d : %g\n" % (Ai[p], Ap[p], Ax[p] if Ax is not None else 1))
-            if brief and p > 20:
-                stdout.write("  ...\n")
-                return True
-    return True
+    n_rows = len(rows)
+    n_cols = len(cols)
+
+    found = False
+    n = 0
+    p = 0
+    found_idx = 0
+
+    new_val = xalloc(nz)
+    new_row_ind = ialloc(nz)
+    new_col_ptr = ialloc(m + 1)
+
+    new_col_ptr[p] = 0
+
+    for j in cols:
+
+        for k in range(indptr[j], indptr[j + 1]):
+            # search row_ind[k] in rows
+            found = False
+            found_idx = 0
+            while not found and found_idx < n_rows:
+                if indices[k] == rows[found_idx]:
+                    found = True
+                found_idx += 1
+
+            # store the values if the row was found in rows
+            if found:  # if the row index is in the designated rows...
+                new_val[n] = data[k]  # store the value
+                new_row_ind[n] = found_idx - 1  # store the index where the original index was found inside "rows"
+                n += 1
+        p += 1
+        new_col_ptr[p] = n
+
+    new_col_ptr[p] = n
+
+    # B = CscMat()
+    # B.data = new_val
+    # B.indices = new_row_ind
+    # B.indptr = new_col_ptr
+    # B.nz = n
+    # B.nzmax = n
+    return new_val, new_row_ind, new_col_ptr, n
+
+
+cdef csc_to_dense(int m, int n, int[:] indptr, int[:] indices, double[:] data):
+    """
+    Pass this matrix to a dense 2D array
+    :return: list of lists
+    """
+    val = np.empty([m, n], dtype=np.double)
+    for j in range(n):
+        for p in range(indptr[j], indptr[j + 1]):
+            i = indices[p]
+            val[i][j] = data[p]
+    return val
+
