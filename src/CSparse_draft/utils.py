@@ -28,9 +28,9 @@ def scipy_to_mat(scipy_mat: csc_matrix):
 
     mat.m, mat.n = scipy_mat.shape
     mat.nz = -1
-    mat.data = scipy_mat.data.tolist()
-    mat.indices = scipy_mat.indices.tolist()
-    mat.indptr = scipy_mat.indptr.tolist()
+    mat.data = scipy_mat.data
+    mat.indices = scipy_mat.indices
+    mat.indptr = scipy_mat.indptr
     mat.nzmax = scipy_mat.nnz
 
     return mat

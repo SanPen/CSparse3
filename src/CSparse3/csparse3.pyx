@@ -38,8 +38,7 @@ from cpython cimport array as c_array
 from array import array
 cimport cython
 
-@cython.boundscheck(False) # turn off bounds-checking for entire function
-@cython.wraparound(False)  # turn off negative index wrapping for entire function
+
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
@@ -824,7 +823,10 @@ def cs_add(A: CscMat, B: CscMat, alpha, beta):
     return C  # success; free workspace, return C
 
 
-cpdef cs_multiply(A: CscMat, B: CscMat):
+@cython.boundscheck(False) # turn off bounds-checking for entire function
+@cython.wraparound(False)  # turn off negative index wrapping for entire function
+cpdef cs_multiply(int Am, int An, int[:] Aindptr, double[:] Adata,
+                  B: CscMat):
     """
     Sparse matrix multiplication, C = A*B
 
@@ -833,15 +835,13 @@ cpdef cs_multiply(A: CscMat, B: CscMat):
     @return: C = A*B, null on error
     """
     nz = 0
-    if not CS_CSC(A) or not CS_CSC(B):
-        return None # check inputs
-    if A.n != B.m:
+    if An != Bm:
         return None
 
-    cdef unsigned int m = A.m
-    cdef unsigned int n = B.n
+    cdef unsigned int m = Am
+    cdef unsigned int n = Bn
 
-    cdef unsigned int anz = A.indptr[A.n]
+    cdef unsigned int anz = Aindptr[An]
 
     cdef c_array.array Bp = B.indptr
     cdef c_array.array Bi = B.indices
@@ -849,7 +849,7 @@ cpdef cs_multiply(A: CscMat, B: CscMat):
     cdef unsigned int  bnz = Bp[n]
     cdef c_array.array w = ialloc(m)  # get workspace
 
-    values = (A.data is not None) and (Bx is not None)
+    values = (Adata is not None) and (Bx is not None)
     x = xalloc(m) if values else None  # get workspace
     C = cs_spalloc(m, n, anz + bnz, values, False)  # allocate result
 
