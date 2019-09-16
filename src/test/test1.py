@@ -1,4 +1,5 @@
 import numpy as np
+from time import time
 from scipy.sparse import csc_matrix, random
 
 from CSparse_draft.utils import scipy_to_mat
@@ -14,14 +15,21 @@ def test1():
     B = csc_matrix(random(m, n, density=0.2))
     x = np.random.random(m)
 
+    # ---------------------------------------------------------------------
     # Scipy
+    # ---------------------------------------------------------------------
+    t = time()
     C = A + B
     D = A - B
     F = A * B
     G = C * x
     H = A * 5
+    print('Scipy\t', time() - t)
 
-    # same operations with CSparse3
+    # ---------------------------------------------------------------------
+    # CSparse3
+    # ---------------------------------------------------------------------
+    t = time()
     A2 = scipy_to_mat(A)
     B2 = scipy_to_mat(B)
     C2 = A2 + B2
@@ -29,11 +37,10 @@ def test1():
     F2 = A2 * B2
     G2 = C2 * x
     H2 = A2 * 5.0
-
-    # print('Scipy')
-    # print(F.todense())
-    # print('CSparse3')
-    # print(F2.todense())
+    print('CSparse\t', time() - t)
+    # ---------------------------------------------------------------------
+    # check
+    # ---------------------------------------------------------------------
 
     pass_sum = (C.todense() == C2.todense()).all()
     pass_subt = (D.todense() == D2.todense()).all()
