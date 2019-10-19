@@ -28,6 +28,7 @@ CSparse3.py: a Concise Sparse matrix Python package
 
 from sys import stdout
 import numpy as np  # this is for compatibility with numpy
+import numba as nb
 from collections import Iterable
 
 
@@ -339,8 +340,6 @@ class CscMat:
         @param m: number of rows
         @param n: number of columns
         @param nz_max: maximum number of entries
-        @param values: allocate pattern only if false, values and pattern otherwise
-        @param triplet: compressed-column if false, triplet form otherwise
         """
 
         # maximum number of entries
@@ -605,18 +604,21 @@ def CS_MARK(w, j):
     w[j] = CS_FLIP(w[j])
 
 
+@nb.jit("i8[:](i8)", nopython=True)
 def ialloc(n):
-    return np.zeros(n, dtype=int)
+    return np.zeros(n, dtype=nb.int64)
 
 
 def cpalloc(n):
     return np.zeros(n, dtype=complex)
 
 
+@nb.jit("f8[:](i8)", nopython=True)
 def xalloc(n):
-    return np.zeros(n)
+    return np.zeros(n, dtype=nb.float64)
 
 
+@nb.jit("Tuple((i8, i8, i8[:], i8[:], f8[:], i8))(i8, i8, i8)", nopython=True)
 def cs_spalloc(m, n, nzmax):
     """
     Allocate a sparse matrix (triplet form or compressed-column form).
@@ -624,38 +626,35 @@ def cs_spalloc(m, n, nzmax):
     @param m: number of rows
     @param n: number of columns
     @param nzmax: maximum number of entries
-    @param allocate_values: allocate pattern only if false, values and pattern otherwise
-    @return: sparse matrix
+    @return: m, n, Aindptr, Aindices, Adata, Anzmax
     """
     # Am = m  # define dimensions and nzmax
     # An = n
     Anzmax = max(nzmax, 1)
     # Anz = -1
-    Aindptr = ialloc(n + 1)
-    Aindices = ialloc(Anzmax)
-    Adata = xalloc(Anzmax)
+    Aindptr = np.zeros(n+1, dtype=nb.int64)  # ialloc(n + 1)
+    Aindices = np.zeros(Anzmax, dtype=nb.int64)  # ialloc(Anzmax)
+    Adata = np.zeros(Anzmax, dtype=nb.float64)  # xalloc(Anzmax)
     return m, n, Aindptr, Aindices, Adata, Anzmax
 
 
+@nb.jit("i8(i8[:], i8[:], f8[:], i8, f8, i8[:], f8[:], i8, i8[:], i8)", nopython=True)
 def cs_scatter(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
     """
-    Scatters and sums a sparse vector A(:,j) into a dense vector, x = x +
-    beta * A(:,j).
-
-    @param A: the sparse vector is A(:,j)
-    @param j: the column of A to use
-    @param beta: scalar multiplied by A(:,j)
-    @param w: size m, node i is marked if w[i] = mark
-    @param x: size m, ignored if null
-    @param mark: mark value of w
-    @param C: pattern of x accumulated in C.i
-    @param nz: pattern of x placed in C starting at C.i[nz]
-    @return: new value of nz, -1 on error
+    Scatters and sums a sparse vector A(:,j) into a dense vector, x = x + beta * A(:,j)
+    :param Ap:
+    :param Ai:
+    :param Ax:
+    :param j: the column of A to use
+    :param beta: scalar multiplied by A(:,j)
+    :param w: size m, node i is marked if w[i] = mark
+    :param x: size m, ignored if null
+    :param mark: mark value of w
+    :param Ci: pattern of x accumulated in C.i
+    :param nz: pattern of x placed in C starting at C.i[nz]
+    :return: new value of nz, -1 on error
     """
-    # if not CS_CSC(A) or w is None or not CS_CSC(C):
-    #     return -1  # check inputs
-    # Ap, Ai, Ax = A.indptr, A.indices, A.data
-    # Ci = C.indices
+
     for p in range(Ap[j], Ap[j + 1]):
         i = Ai[p]  # A(i,j) is nonzero
         if w[i] < mark:
@@ -723,12 +722,19 @@ def cs_compress(T: TripletsMat):
     return Cm, Cn, Cp, Ci, Cx
 
 
-def _copy(src, dest, length):
+@nb.jit("(f8[:], f8[:], i8)", nopython=True)
+def _copy_f(src, dest, length):
     for i in range(length):
         dest[i] = src[i]
-    # dest = src[:length]
 
 
+@nb.jit("(i8[:], i8[:], i8)", nopython=True)
+def _copy_i(src, dest, length):
+    for i in range(length):
+        dest[i] = src[i]
+
+
+@nb.jit("Tuple((i8[:], f8[:], i8))(i8, i8[:], i8[:], f8[:], i8)", nopython=True)
 def cs_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
     """
     Change the max # of entries a sparse matrix can hold.
@@ -748,15 +754,15 @@ def cs_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
     if nzmax <= 0:
         nzmax = Aindptr[An]
 
-    Ainew = ialloc(nzmax)
+    Ainew = np.zeros(nzmax, dtype=nb.int64)  # ialloc(nzmax)
     length = min(nzmax, len(Aindices))
-    _copy(Aindices, Ainew, length)
+    _copy_i(Aindices, Ainew, length)
     Aindices = Ainew
 
     # if Adata is not None:
-    Axnew = xalloc(nzmax)
+    Axnew = np.zeros(nzmax, dtype=nb.float64)  # xalloc(nzmax)
     length = min(nzmax, len(Adata))
-    _copy(Adata, Axnew, length)
+    _copy_f(Adata, Axnew, length)
     Adata = Axnew
 
     Anzmax = nzmax
@@ -764,6 +770,7 @@ def cs_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
     return Aindices, Adata, Anzmax
 
 
+@nb.jit("Tuple((i8, i8, i8[:], i8[:], f8[:]))(i8, i8, i8[:], i8[:], f8[:], i8, i8, i8[:], i8[:], f8[:], f8, f8)", nopython=True)
 def cs_add(Am, An, Aindptr, Aindices, Adata,
            Bm, Bn, Bindptr, Bindices, Bdata, alpha, beta):
     """
@@ -773,24 +780,23 @@ def cs_add(Am, An, Aindptr, Aindices, Adata,
     @param B: column-compressed matrix
     @param alpha: scalar alpha
     @param beta: scalar beta
-    @return: C=alpha*A + beta*B, null on error
+    @return: C=alpha*A + beta*B, null on error (Cm, Cn, Cp, Ci, Cx)
     """
     nz = 0
 
-    if Am != Bm or An != Bn:
-        return None
+    # if Am != Bm or An != Bn:
+    #     return None
 
     m, anz, n, Bp, Bx = Am, Aindptr[An], Bn, Bindptr, Bdata
 
     bnz = Bp[n]
 
-    w = ialloc(m)  # get workspace
+    w = np.zeros(m, dtype=np.int64)  #ialloc(m)  # get workspace
 
-    x = xalloc(m)   # get workspace
+    x = np.zeros(m, dtype=np.float64)  # xalloc(m)   # get workspace
 
     Cm, Cn, Cp, Ci, Cx, Cnzmax = cs_spalloc(m, n, anz + bnz)  # allocate result
 
-    # Cp, Ci, Cx = C.indptr, C.indices, C.data
     for j in range(n):
         Cp[j] = nz  # column j of C starts here
 
@@ -806,6 +812,7 @@ def cs_add(Am, An, Aindptr, Aindices, Adata,
     return Cm, Cn, Cp, Ci, Cx  # success; free workspace, return C
 
 
+@nb.jit("Tuple((i8, i8, i8[:], i8[:], f8[:], i8))(i8, i8, i8[:], i8[:], f8[:], i8, i8, i8[:], i8[:], f8[:])", nopython=True)
 def cs_multiply(Am, An, Aindptr, Aindices, Adata,
                 Bm, Bn, Bindptr, Bindices, Bdata):
     """
@@ -820,7 +827,7 @@ def cs_multiply(Am, An, Aindptr, Aindices, Adata,
     :param Bindptr:
     :param Bindices:
     :param Bdata:
-    :return:
+    :return: Cm, Cn, Cp, Ci, Cx, Cnzmax
     """
 
 
@@ -833,8 +840,8 @@ def cs_multiply(Am, An, Aindptr, Aindices, Adata,
     """
     nz = 0
 
-    if An != Bm:
-        return None
+    # if An != Bm:
+    #     return None
 
     m = Am
 
@@ -844,14 +851,13 @@ def cs_multiply(Am, An, Aindptr, Aindices, Adata,
 
     bnz = Bp[n]
 
-    w = ialloc(m)  # get workspace
+    w = np.zeros(m, dtype=nb.int64)  # ialloc(m)  # get workspace
 
-    x = xalloc(m)  # get workspace
+    x = np.zeros(m, dtype=nb.float64)  #xalloc(m)  # get workspace
 
     Cm, Cn, Cp, Ci, Cx, Cnzmax = cs_spalloc(m, n, anz + bnz)  # allocate result
 
     for j in range(n):
-        # print('j:', j)
         # print('\tCi:', Ci, '\n\tCp:', Cp, '\n\tCx:',  Cx, '\n\t', Cnzmax)
         if nz + m > Cnzmax:
             # Aindices, Adata, Anzmax
@@ -1002,37 +1008,3 @@ def sub_matrix(Am, Anz, Aindptr, Aindices, Adata, rows, cols):
     # B.nzmax = n
     return n, new_col_ptr, new_row_ind, new_val
 
-
-def cs_print(A: CscMat, brief):
-    """
-    Prints a sparse matrix.
-
-    @param A: sparse matrix (triplet ot column-compressed)
-    @param brief: print all of A if false, a few entries otherwise
-    @return: true if successful, false on error
-    """
-    if A is None:
-        stdout.write("(null)\n")
-        return False
-    m, n, Ap, Ai, Ax = A.m, A.n, A.indptr, A.indices, A.data
-    nzmax = A.nzmax
-    nz = A.nz
-    # stdout.write("CSparse.py Version %d.%d.%d, %s.  %s\n" % (CS_VER, CS_SUBVER,
-    #         CS_SUBSUB, CS_DATE, CS_COPYRIGHT))
-    if nz < 0:
-        stdout.write("%d-by-%d, nzmax: %d nnz: %d, 1-norm: %g\n" % (m, n, nzmax, Ap[n], cs_norm(A)))
-        for j in range(n):
-            stdout.write("    col %d : locations %d to %d\n" % (j, Ap[j], Ap[j + 1] - 1))
-            for p in range(Ap[j], Ap[j + 1]):
-                stdout.write("      %d : %g\n" % (Ai[p], Ax[p] if Ax is not None else 1))
-                if brief and p > 20:
-                    stdout.write("  ...\n")
-                    return True
-    else:
-        stdout.write("triplet: %d-by-%d, nzmax: %d nnz: %d\n" % (m, n, nzmax, nz))
-        for p in range(nz):
-            stdout.write("    %d %d : %g\n" % (Ai[p], Ap[p], Ax[p] if Ax is not None else 1))
-            if brief and p > 20:
-                stdout.write("  ...\n")
-                return True
-    return True

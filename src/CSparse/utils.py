@@ -16,10 +16,10 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this Module; if not, write to the Free Software
 # Foundation, Inc, 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-
+import numpy as np
 from scipy.sparse import csc_matrix
 
-from CSparse_draft.csparse3 import CscMat
+from CSparse.csparse3 import CscMat
 
 
 def scipy_to_mat(scipy_mat: csc_matrix):
@@ -29,8 +29,8 @@ def scipy_to_mat(scipy_mat: csc_matrix):
     mat.m, mat.n = scipy_mat.shape
     mat.nz = -1
     mat.data = scipy_mat.data
-    mat.indices = scipy_mat.indices
-    mat.indptr = scipy_mat.indptr
+    mat.indices = scipy_mat.indices.astype(np.int64)
+    mat.indptr = scipy_mat.indptr.astype(np.int64)
     mat.nzmax = scipy_mat.nnz
 
     return mat

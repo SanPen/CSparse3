@@ -1,16 +1,18 @@
+import pyximport
+pyximport.install()
+
 import numpy as np
 from time import time
 from scipy.sparse import csc_matrix, random
 
-from CSparse.utils import scipy_to_mat
+from cython.CSparse3 import scipy_to_mat
 
 np.set_printoptions( linewidth=100000)
 
 
 def test1():
     np.random.seed(0)
-    k = 1000
-    m, n = k, k
+    m, n = 10, 10
 
     A = csc_matrix(random(m, n, density=0.2))
     B = csc_matrix(random(m, n, density=0.2))
