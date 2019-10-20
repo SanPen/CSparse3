@@ -560,11 +560,7 @@ class CscMat:
         Pass this matrix to a dense 2D array
         :return: list of lists
         """
-        val = np.zeros((self.m, self.n))
-        for j in range(self.n):
-            for p in range(self.indptr[j], self.indptr[j + 1]):
-                val[self.indices[p], j] = self.data[p]
-        return val
+        return csc_to_dense(m=self.m, n=self.n, indptr=self.indptr, indices=self.indices, data=self.data)
 
     def dot(self, o) -> "CscMat":
         """
@@ -832,14 +828,6 @@ def csc_multiply(Am, An, Aindptr, Aindices, Adata,
     :return: Cm, Cn, Cp, Ci, Cx, Cnzmax
     """
 
-
-    """
-
-
-    @param A: column-compressed matrix
-    @param B: column-compressed matrix
-    @return: C = A*B, null on error
-    """
     nz = 0
 
     m = Am
@@ -1005,3 +993,20 @@ def csc_sub_matrix(Am, Anz, Aindptr, Aindices, Adata, rows, cols):
     # B.nzmax = n
     return n, new_col_ptr, new_row_ind, new_val
 
+
+@nb.njit("f8[:, :](i8, i8, i4[:], i4[:], f8[:])")
+def csc_to_dense(m, n, indptr, indices, data):
+    """
+    Convert csc matrix to dense
+    :param m:
+    :param n:
+    :param indptr:
+    :param indices:
+    :param data:
+    :return: 2d numpy array
+    """
+    val = np.zeros((m, n), dtype=nb.float64)
+    for j in range(n):
+        for p in range(indptr[j], indptr[j + 1]):
+            val[indices[p], j] = data[p]
+    return val

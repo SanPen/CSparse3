@@ -67,4 +67,4 @@ def test1(check=True):
 
 
 if __name__ == '__main__':
-    test1(check=False)
+    test1(check=True)
