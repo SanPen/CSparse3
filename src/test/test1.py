@@ -7,7 +7,7 @@ from CSparse.utils import scipy_to_mat
 np.set_printoptions(linewidth=100000)
 
 
-def test1():
+def test1(check=True):
     np.random.seed(0)
     k = 2000
     m, n = k, k
@@ -45,26 +45,26 @@ def test1():
     # ---------------------------------------------------------------------
     # check
     # ---------------------------------------------------------------------
+    if check:
+        pass_sum = (C.todense() == C2.todense()).all()
+        pass_subt = (D.todense() == D2.todense()).all()
+        pass_mult = (F.todense() == F2.todense()).all()
+        pass_mat_vec = (G == G2).all()
+        pass_mult_scalar = (H.todense() == H2.todense()).all()
 
-    pass_sum = (C.todense() == C2.todense()).all()
-    pass_subt = (D.todense() == D2.todense()).all()
-    pass_mult = (F.todense() == F2.todense()).all()
-    pass_mat_vec = (G == G2).all()
-    pass_mult_scalar = (H.todense() == H2.todense()).all()
+        assert pass_sum
+        assert pass_subt
+        assert pass_mult
+        assert pass_mat_vec
+        assert pass_mult_scalar
 
-    assert pass_sum
-    assert pass_subt
-    assert pass_mult
-    assert pass_mat_vec
-    assert pass_mult_scalar
+        print('+\t\t', pass_sum)
+        print('-\t\t', pass_subt)
+        print('mat mat\t', pass_mult)
+        print('mat vec\t', pass_mat_vec)
+        print('scalar *', pass_mult_scalar)
 
-    print('+\t\t', pass_sum)
-    print('-\t\t', pass_subt)
-    print('mat mat\t', pass_mult)
-    print('mat vec\t', pass_mat_vec)
-    print('scalar *', pass_mult_scalar)
-    pass
 
 
 if __name__ == '__main__':
-    test1()
+    test1(check=False)

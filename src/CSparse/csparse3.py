@@ -318,7 +318,12 @@ class TripletsMat:
         Return the CSC version of this matrix
         :return: CscMat matrix
         """
-        return cs_compress(self)
+        Cm, Cn, Cp, Ci, Cx = triplets_to_csc(m=self.m, n=self.n, Ti=self.rows, Tj=self.column, Tx=self.data, nz=self.nz)
+        mat = CscMat(m=self.m, n=self.n, nz_max=self.nz)
+        mat.indices = Ci
+        mat.indptr = Cp
+        mat.data = Cx
+        return mat
 
     def to_dense(self):
         """
@@ -391,13 +396,13 @@ class CscMat:
             elif isinstance(key[0], Iterable) and isinstance(key[1], Iterable):
 
                 B = CscMat()
-                n, B.indptr, B.indices, B.data = sub_matrix(Am=self.m,
-                                                            Anz=self.nz,
-                                                            Aindptr=self.indptr,
-                                                            Aindices=self.indices,
-                                                            Adata=self.data,
-                                                            rows=key[0],
-                                                            cols=key[1])
+                n, B.indptr, B.indices, B.data = csc_sub_matrix(Am=self.m,
+                                                                Anz=self.nz,
+                                                                Aindptr=self.indptr,
+                                                                Aindices=self.indices,
+                                                                Adata=self.data,
+                                                                rows=key[0],
+                                                                cols=key[1])
                 B.nz = n
                 B.nzmax = n
 
@@ -444,11 +449,11 @@ class CscMat:
 
         if isinstance(o, CscMat):
             C = CscMat()
-            C.m, C.n, C.indptr, C.indices, C.data = cs_add(Am=self.m, An=self.n, Aindptr=self.indptr,
-                                                           Aindices=self.indices, Adata=self.data,
-                                                           Bm=o.m, Bn=o.n, Bindptr=o.indptr,
-                                                           Bindices=o.indices, Bdata=o.data,
-                                                           alpha=1.0, beta=1.0)
+            C.m, C.n, C.indptr, C.indices, C.data = csc_add(Am=self.m, An=self.n, Aindptr=self.indptr,
+                                                            Aindices=self.indices, Adata=self.data,
+                                                            Bm=o.m, Bn=o.n, Bindptr=o.indptr,
+                                                            Bindices=o.indices, Bdata=o.data,
+                                                            alpha=1.0, beta=1.0)
         elif isinstance(o, float) or isinstance(o, int):
             C = self.copy()
             C.data += o
@@ -465,11 +470,11 @@ class CscMat:
 
         if isinstance(o, CscMat):
             C = CscMat()
-            C.m, C.n, C.indptr, C.indices, C.data = cs_add(Am=self.m, An=self.n, Aindptr=self.indptr,
-                                                           Aindices=self.indices, Adata=self.data,
-                                                           Bm=o.m, Bn=o.n, Bindptr=o.indptr,
-                                                           Bindices=o.indices, Bdata=o.data,
-                                                           alpha=1.0, beta=-1.0)
+            C.m, C.n, C.indptr, C.indices, C.data = csc_add(Am=self.m, An=self.n, Aindptr=self.indptr,
+                                                            Aindices=self.indices, Adata=self.data,
+                                                            Bm=o.m, Bn=o.n, Bindptr=o.indptr,
+                                                            Bindices=o.indices, Bdata=o.data,
+                                                            alpha=1.0, beta=-1.0)
         elif isinstance(o, float) or isinstance(o, int):
             C = self.copy()
             C.data += o
@@ -486,12 +491,27 @@ class CscMat:
         """
         if isinstance(other, CscMat):
             # mat-mat multiplication
-            return self.dot(other)
+            C = CscMat()
+            C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = csc_multiply(Am=self.m,
+                                                                          An=self.n,
+                                                                          Aindptr=self.indptr,
+                                                                          Aindices=self.indices,
+                                                                          Adata=self.data,
+                                                                          Bm=other.m,
+                                                                          Bn=other.n,
+                                                                          Bindptr=other.indptr,
+                                                                          Bindices=other.indices,
+                                                                          Bdata=other.data)
+            return C
 
         elif isinstance(other, np.ndarray):
             # mat-vec multiplication -> vector
-            return cs_mat_vec(m=self.m, n=self.n, Ap=self.indptr,
-                              Ai=self.indices, Ax=self.data, x=other)
+            return csc_mat_vec(m=self.m,
+                               n=self.n,
+                               Ap=self.indptr,
+                               Ai=self.indices,
+                               Ax=self.data,
+                               x=other)
 
         elif isinstance(other, float) or isinstance(other, int):
             C = self.copy()
@@ -553,10 +573,16 @@ class CscMat:
         :return: CscMat instance
         """
         C = CscMat()
-        C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = cs_multiply(Am=self.m, An=self.n, Aindptr=self.indptr,
-                                                                     Aindices=self.indices, Adata=self.data,
-                                                                     Bm=o.m, Bn=o.n, Bindptr=o.indptr,
-                                                                     Bindices=o.indices, Bdata=o.data)
+        C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = csc_multiply(Am=self.m,
+                                                                      An=self.n,
+                                                                      Aindptr=self.indptr,
+                                                                      Aindices=self.indices,
+                                                                      Adata=self.data,
+                                                                      Bm=o.m,
+                                                                      Bn=o.n,
+                                                                      Bindptr=o.indptr,
+                                                                      Bindices=o.indices,
+                                                                      Bdata=o.data)
         return C
 
     def t(self):
@@ -565,8 +591,11 @@ class CscMat:
         :return:
         """
         C = CscMat()
-        C.m, C.n, C.indptr, C.indices, C.data = cs_transpose(m=self.m, n=self.n,
-                                                             Ap=self.indptr, Ai=self.indices, Ax=self.data)
+        C.m, C.n, C.indptr, C.indices, C.data = csc_transpose(m=self.m,
+                                                              n=self.n,
+                                                              Ap=self.indptr,
+                                                              Ai=self.indices,
+                                                              Ax=self.data)
         return C
 
     @property
@@ -604,7 +633,7 @@ def xalloc(n):
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i8)")
-def cs_spalloc(m, n, nzmax):
+def csc_spalloc(m, n, nzmax):
     """
     Allocate a sparse matrix (triplet form or compressed-column form).
 
@@ -613,10 +642,7 @@ def cs_spalloc(m, n, nzmax):
     @param nzmax: maximum number of entries
     @return: m, n, Aindptr, Aindices, Adata, Anzmax
     """
-    # Am = m  # define dimensions and nzmax
-    # An = n
     Anzmax = max(nzmax, 1)
-    # Anz = -1
     Aindptr = ialloc(n + 1)
     Aindices = ialloc(Anzmax)
     Adata = xalloc(Anzmax)
@@ -624,7 +650,7 @@ def cs_spalloc(m, n, nzmax):
 
 
 @nb.njit("i8(i4[:], i4[:], f8[:], i8, f8, i4[:], f8[:], i8, i4[:], i8)")
-def cs_scatter(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
+def csc_scatter(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
     """
     Scatters and sums a sparse vector A(:,j) into a dense vector, x = x + beta * A(:,j)
     :param Ap:
@@ -646,16 +672,14 @@ def cs_scatter(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
             w[i] = mark  # i is new entry in column j
             Ci[nz] = i  # add i to pattern of C(:,j)
             nz += 1
-            # if x is not None:
             x[i] = beta * Ax[p]  # x(i) = beta*A(i,j)
-        # elif x is not None:
         else:
             x[i] += beta * Ax[p]  # i exists in C(:,j) already
     return nz
 
 
 @nb.njit("i8(i4[:], i4[:], i8)")
-def cs_cumsum(p, c, n):
+def csc_cumsum(p, c, n):
     """
     p [0..n] = cumulative sum of c [0..n-1], and then copy p [0..n-1] into c
 
@@ -676,27 +700,24 @@ def cs_cumsum(p, c, n):
     return int(nz2)               # return sum (c [0..n-1])
 
 
-def cs_compress(T: TripletsMat):
+@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8)")
+def triplets_to_csc(m, n, Ti, Tj, Tx, nz):
     """
     C = compressed-column form of a triplet matrix T. The columns of C are
     not sorted, and duplicate entries may be present in C.
 
     @param T: triplet matrix
-    @return: C if successful, null on error
+    @return: Cm, Cn, Cp, Ci, Cx
     """
 
-    m, n = T.m, T.n
-
-    Ti, Tj, Tx, nz = T.rows, T.column, T.data, T.nz
-
-    Cm, Cn, Cp, Ci, Cx, nz = cs_spalloc(m, n, nz)  # allocate result
+    Cm, Cn, Cp, Ci, Cx, nz = csc_spalloc(m, n, nz)  # allocate result
 
     w = ialloc(n)  # get workspace
 
     for k in range(nz):
         w[Tj[k]] += 1  # column counts
 
-    cs_cumsum(Cp, w, n)  # column pointers
+    csc_cumsum(Cp, w, n)  # column pointers
 
     for k in range(nz):
         p = w[Tj[k]]
@@ -721,44 +742,39 @@ def _copy_i(src, dest, length):
 
 
 @nb.njit("Tuple((i4[:], f8[:], i8))(i8, i4[:], i4[:], f8[:], i8)")
-def cs_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
+def csc_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
     """
     Change the max # of entries a sparse matrix can hold.
     :param An:
     :param Aindptr:
     :param Aindices:
     :param Adata:
-    :param nzmax:
-    :return: Aindices, Adata, Anzmax
+    :param nzmax:new maximum number of entries
+    :return: indices, data, nzmax
     """
     """
     @param A: column-compressed matrix
-    @param nzmax: new maximum number of entries
+    @param nzmax:
     @return: true if successful, false on error
     """
 
     if nzmax <= 0:
         nzmax = Aindptr[An]
 
-    Ainew = ialloc(nzmax)
     length = min(nzmax, len(Aindices))
+    Ainew = ialloc(nzmax)
     _copy_i(Aindices, Ainew, length)
-    Aindices = Ainew
 
-    # if Adata is not None:
-    Axnew = xalloc(nzmax)
     length = min(nzmax, len(Adata))
+    Axnew = xalloc(nzmax)
     _copy_f(Adata, Axnew, length)
-    Adata = Axnew
 
-    Anzmax = nzmax
-
-    return Aindices, Adata, Anzmax
+    return Ainew, Axnew, nzmax
 
 
-# @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:], f8, f8)")
-def cs_add(Am, An, Aindptr, Aindices, Adata,
-           Bm, Bn, Bindptr, Bindices, Bdata, alpha, beta):
+@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:], f8, f8)")
+def csc_add(Am, An, Aindptr, Aindices, Adata,
+            Bm, Bn, Bindptr, Bindices, Bdata, alpha, beta):
     """
     C = alpha*A + beta*B
 
@@ -781,14 +797,14 @@ def cs_add(Am, An, Aindptr, Aindices, Adata,
 
     x = xalloc(m)   # get workspace
 
-    Cm, Cn, Cp, Ci, Cx, Cnzmax = cs_spalloc(m, n, anz + bnz)  # allocate result
+    Cm, Cn, Cp, Ci, Cx, Cnzmax = csc_spalloc(m, n, anz + bnz)  # allocate result
 
     for j in range(n):
         Cp[j] = nz  # column j of C starts here
 
-        nz = cs_scatter(Aindptr, Aindices, Adata, j, alpha, w, x, j + 1, Ci, nz)  # alpha*A(:,j)
+        nz = csc_scatter(Aindptr, Aindices, Adata, j, alpha, w, x, j + 1, Ci, nz)  # alpha*A(:,j)
 
-        nz = cs_scatter(Bindptr, Bindices, Bdata, j, beta, w, x, j + 1, Ci, nz)  # beta*B(:,j)
+        nz = csc_scatter(Bindptr, Bindices, Bdata, j, beta, w, x, j + 1, Ci, nz)  # beta*B(:,j)
 
         for p in range(Cp[j], nz):
             Cx[p] = x[Ci[p]]
@@ -798,9 +814,9 @@ def cs_add(Am, An, Aindptr, Aindices, Adata,
     return Cm, Cn, Cp, Ci, Cx  # success; free workspace, return C
 
 
-@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])")
-def cs_multiply(Am, An, Aindptr, Aindices, Adata,
-                Bm, Bn, Bindptr, Bindices, Bdata):
+@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])", parallel=True)
+def csc_multiply(Am, An, Aindptr, Aindices, Adata,
+                 Bm, Bn, Bindptr, Bindices, Bdata):
     """
     Sparse matrix multiplication, C = A*B
     :param Am:
@@ -826,9 +842,6 @@ def cs_multiply(Am, An, Aindptr, Aindices, Adata,
     """
     nz = 0
 
-    # if An != Bm:
-    #     return None
-
     m = Am
 
     anz = Aindptr[An]
@@ -837,37 +850,34 @@ def cs_multiply(Am, An, Aindptr, Aindices, Adata,
 
     bnz = Bp[n]
 
-    w = ialloc(m)  # get workspace
+    w = np.zeros(n, dtype=nb.int32)  # ialloc(m)  # get workspace
 
-    x = xalloc(m)  # get workspace
+    x = np.zeros(n, dtype=nb.float64)  # xalloc(m)  # get workspace
 
-    Cm, Cn, Cp, Ci, Cx, Cnzmax = cs_spalloc(m, n, anz + bnz)  # allocate result
+    Cm, Cn, Cp, Ci, Cx, Cnzmax = csc_spalloc(m, n, anz + bnz)  # allocate result
 
     for j in range(n):
-        # print('\tCi:', Ci, '\n\tCp:', Cp, '\n\tCx:',  Cx, '\n\t', Cnzmax)
+
         if nz + m > Cnzmax:
-            # Aindices, Adata, Anzmax
-            Ci, Cx, Cnzmax = cs_sprealloc(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
-            # print('Corrected Cnzmax\n\t', Ci, '\n\tCp:', Cp, '\n\tCx:',  Cx, '\n\t', Cnzmax)
+            Ci, Cx, Cnzmax = csc_sprealloc(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
 
         Cp[j] = nz  # column j of C starts here
 
         for p in range(Bp[j], Bp[j + 1]):
-            nz = cs_scatter(Aindptr, Aindices, Adata, Bi[p], Bx[p], w, x, j + 1, Ci, nz)
-            # print('\tp:', p, 'nz:', nz)
+            nz = csc_scatter(Aindptr, Aindices, Adata, Bi[p], Bx[p], w, x, j + 1, Ci, nz)
 
         for p in range(Cp[j], nz):
             Cx[p] = x[Ci[p]]
 
     Cp[n] = nz  # finalize the last column of C
 
-    Ci, Cx, Cnzmax = cs_sprealloc(Cn, Cp, Ci, Cx, 0)  # remove extra space from C
+    Ci, Cx, Cnzmax = csc_sprealloc(Cn, Cp, Ci, Cx, 0)  # remove extra space from C
 
     return Cm, Cn, Cp, Ci, Cx, Cnzmax
 
 
 @nb.njit("f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])", parallel=True)
-def cs_mat_vec(m, n, Ap, Ai, Ax, x):
+def csc_mat_vec(m, n, Ap, Ai, Ax, x):
     """
     Sparse matrix times dense column vector, y = A * x.
     :param m: number of rows
@@ -886,7 +896,7 @@ def cs_mat_vec(m, n, Ap, Ai, Ax, x):
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:])")
-def cs_transpose(m, n, Ap, Ai, Ax):
+def csc_transpose(m, n, Ap, Ai, Ax):
     """
     Transpose matrix
     :param m: A.m
@@ -907,14 +917,14 @@ def cs_transpose(m, n, Ap, Ai, Ax):
 
     # m, n, Ap, Ai, Ax = A.m, A.n, A.indptr, A.indices, A.data
 
-    Cm, Cn, Cp, Ci, Cx, Cnzmax = cs_spalloc(m=n, n=m, nzmax=Ap[n])  # allocate result
+    Cm, Cn, Cp, Ci, Cx, Cnzmax = csc_spalloc(m=n, n=m, nzmax=Ap[n])  # allocate result
 
     w = ialloc(m)  # get workspace
 
     for p in range(Ap[n]):
         w[Ai[p]] += 1  # row counts
 
-    cs_cumsum(Cp, w, m)  # row pointers
+    csc_cumsum(Cp, w, m)  # row pointers
 
     for j in range(n):
         for p in range(Ap[j], Ap[j + 1]):
@@ -928,7 +938,7 @@ def cs_transpose(m, n, Ap, Ai, Ax):
 
 
 @nb.njit("f8(i8, i4[:], f8[:])")
-def cs_norm(n, Ap, Ax):
+def csc_norm(n, Ap, Ax):
     """
     Computes the 1-norm of a sparse matrix = max (sum (abs (A))), largest
     column sum.
@@ -947,7 +957,7 @@ def cs_norm(n, Ap, Ax):
 
 
 @nb.njit("Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:])")
-def sub_matrix(Am, Anz, Aindptr, Aindices, Adata, rows, cols):
+def csc_sub_matrix(Am, Anz, Aindptr, Aindices, Adata, rows, cols):
     """
     Get SCS arbitrary sub-matrix
     :param A: CSC matrix
