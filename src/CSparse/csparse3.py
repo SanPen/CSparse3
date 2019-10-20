@@ -588,37 +588,22 @@ class CscMat:
         return mat
 
 
-def CS_FLIP(i):
-    return -i - 2
-
-
-def CS_UNFLIP(i):
-    return CS_FLIP(i) if i < 0 else i
-
-
-def CS_MARKED(w, j):
-    return w[j] < 0
-
-
-def CS_MARK(w, j):
-    w[j] = CS_FLIP(w[j])
-
-
-@nb.jit("i8[:](i8)", nopython=True)
+@nb.njit("i4[:](i8)")
 def ialloc(n):
-    return np.zeros(n, dtype=nb.int64)
+    return np.zeros(n, dtype=nb.int32)
 
 
+@nb.njit("c16[:](i8)")
 def cpalloc(n):
-    return np.zeros(n, dtype=complex)
+    return np.zeros(n, dtype=nb.complex128)
 
 
-@nb.jit("f8[:](i8)", nopython=True)
+@nb.njit("f8[:](i8)")
 def xalloc(n):
     return np.zeros(n, dtype=nb.float64)
 
 
-@nb.jit("Tuple((i8, i8, i8[:], i8[:], f8[:], i8))(i8, i8, i8)", nopython=True)
+@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i8)")
 def cs_spalloc(m, n, nzmax):
     """
     Allocate a sparse matrix (triplet form or compressed-column form).
@@ -632,13 +617,13 @@ def cs_spalloc(m, n, nzmax):
     # An = n
     Anzmax = max(nzmax, 1)
     # Anz = -1
-    Aindptr = np.zeros(n+1, dtype=nb.int64)  # ialloc(n + 1)
-    Aindices = np.zeros(Anzmax, dtype=nb.int64)  # ialloc(Anzmax)
-    Adata = np.zeros(Anzmax, dtype=nb.float64)  # xalloc(Anzmax)
+    Aindptr = ialloc(n + 1)
+    Aindices = ialloc(Anzmax)
+    Adata = xalloc(Anzmax)
     return m, n, Aindptr, Aindices, Adata, Anzmax
 
 
-@nb.jit("i8(i8[:], i8[:], f8[:], i8, f8, i8[:], f8[:], i8, i8[:], i8)", nopython=True)
+@nb.njit("i8(i4[:], i4[:], f8[:], i8, f8, i4[:], f8[:], i8, i4[:], i8)")
 def cs_scatter(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
     """
     Scatters and sums a sparse vector A(:,j) into a dense vector, x = x + beta * A(:,j)
@@ -669,6 +654,7 @@ def cs_scatter(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
     return nz
 
 
+@nb.njit("i8(i4[:], i4[:], i8)")
 def cs_cumsum(p, c, n):
     """
     p [0..n] = cumulative sum of c [0..n-1], and then copy p [0..n-1] into c
@@ -722,19 +708,19 @@ def cs_compress(T: TripletsMat):
     return Cm, Cn, Cp, Ci, Cx
 
 
-@nb.jit("(f8[:], f8[:], i8)", nopython=True)
+@nb.njit("(f8[:], f8[:], i8)")
 def _copy_f(src, dest, length):
     for i in range(length):
         dest[i] = src[i]
 
 
-@nb.jit("(i8[:], i8[:], i8)", nopython=True)
+@nb.njit("(i4[:], i4[:], i8)")
 def _copy_i(src, dest, length):
     for i in range(length):
         dest[i] = src[i]
 
 
-@nb.jit("Tuple((i8[:], f8[:], i8))(i8, i8[:], i8[:], f8[:], i8)", nopython=True)
+@nb.njit("Tuple((i4[:], f8[:], i8))(i8, i4[:], i4[:], f8[:], i8)")
 def cs_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
     """
     Change the max # of entries a sparse matrix can hold.
@@ -754,13 +740,13 @@ def cs_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
     if nzmax <= 0:
         nzmax = Aindptr[An]
 
-    Ainew = np.zeros(nzmax, dtype=nb.int64)  # ialloc(nzmax)
+    Ainew = ialloc(nzmax)
     length = min(nzmax, len(Aindices))
     _copy_i(Aindices, Ainew, length)
     Aindices = Ainew
 
     # if Adata is not None:
-    Axnew = np.zeros(nzmax, dtype=nb.float64)  # xalloc(nzmax)
+    Axnew = xalloc(nzmax)
     length = min(nzmax, len(Adata))
     _copy_f(Adata, Axnew, length)
     Adata = Axnew
@@ -770,7 +756,7 @@ def cs_sprealloc(An, Aindptr, Aindices, Adata, nzmax):
     return Aindices, Adata, Anzmax
 
 
-@nb.jit("Tuple((i8, i8, i8[:], i8[:], f8[:]))(i8, i8, i8[:], i8[:], f8[:], i8, i8, i8[:], i8[:], f8[:], f8, f8)", nopython=True)
+# @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:], f8, f8)")
 def cs_add(Am, An, Aindptr, Aindices, Adata,
            Bm, Bn, Bindptr, Bindices, Bdata, alpha, beta):
     """
@@ -791,9 +777,9 @@ def cs_add(Am, An, Aindptr, Aindices, Adata,
 
     bnz = Bp[n]
 
-    w = np.zeros(m, dtype=np.int64)  #ialloc(m)  # get workspace
+    w = ialloc(m)  # get workspace
 
-    x = np.zeros(m, dtype=np.float64)  # xalloc(m)   # get workspace
+    x = xalloc(m)   # get workspace
 
     Cm, Cn, Cp, Ci, Cx, Cnzmax = cs_spalloc(m, n, anz + bnz)  # allocate result
 
@@ -812,7 +798,7 @@ def cs_add(Am, An, Aindptr, Aindices, Adata,
     return Cm, Cn, Cp, Ci, Cx  # success; free workspace, return C
 
 
-@nb.jit("Tuple((i8, i8, i8[:], i8[:], f8[:], i8))(i8, i8, i8[:], i8[:], f8[:], i8, i8, i8[:], i8[:], f8[:])", nopython=True)
+@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])")
 def cs_multiply(Am, An, Aindptr, Aindices, Adata,
                 Bm, Bn, Bindptr, Bindices, Bdata):
     """
@@ -851,9 +837,9 @@ def cs_multiply(Am, An, Aindptr, Aindices, Adata,
 
     bnz = Bp[n]
 
-    w = np.zeros(m, dtype=nb.int64)  # ialloc(m)  # get workspace
+    w = ialloc(m)  # get workspace
 
-    x = np.zeros(m, dtype=nb.float64)  #xalloc(m)  # get workspace
+    x = xalloc(m)  # get workspace
 
     Cm, Cn, Cp, Ci, Cx, Cnzmax = cs_spalloc(m, n, anz + bnz)  # allocate result
 
@@ -880,6 +866,7 @@ def cs_multiply(Am, An, Aindptr, Aindices, Adata,
     return Cm, Cn, Cp, Ci, Cx, Cnzmax
 
 
+@nb.njit("f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])", parallel=True)
 def cs_mat_vec(m, n, Ap, Ai, Ax, x):
     """
     Sparse matrix times dense column vector, y = A * x.
@@ -891,14 +878,15 @@ def cs_mat_vec(m, n, Ap, Ai, Ax, x):
     :param x: size n, vector x
     :return:size m, vector y
     """
-    y = xalloc(m)
+    y = np.zeros(n, dtype=nb.float64)
     for j in range(n):
         for p in range(Ap[j], Ap[j + 1]):
             y[Ai[p]] += Ax[p] * x[j]
     return y
 
 
-def cs_transpose(m, n, Ap, Ai, Ax) -> CscMat:
+@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:])")
+def cs_transpose(m, n, Ap, Ai, Ax):
     """
     Transpose matrix
     :param m: A.m
@@ -906,8 +894,7 @@ def cs_transpose(m, n, Ap, Ai, Ax) -> CscMat:
     :param Ap: A.indptr
     :param Ai: A.indices
     :param Ax: A.data
-    :param allocate_values:
-    :return:
+    :return: Cm, Cn, Cp, Ci, Cx
     """
 
     """
@@ -940,6 +927,7 @@ def cs_transpose(m, n, Ap, Ai, Ax) -> CscMat:
     return Cm, Cn, Cp, Ci, Cx
 
 
+@nb.njit("f8(i8, i4[:], f8[:])")
 def cs_norm(n, Ap, Ax):
     """
     Computes the 1-norm of a sparse matrix = max (sum (abs (A))), largest
@@ -950,8 +938,6 @@ def cs_norm(n, Ap, Ax):
     """
     norm = 0
 
-    # n, Ap, Ax = A.n, A.indptr, A.data
-
     for j in range(n):
         s = 0
         for p in range(Ap[j], Ap[j + 1]):
@@ -960,13 +946,14 @@ def cs_norm(n, Ap, Ax):
     return norm
 
 
+@nb.njit("Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:])")
 def sub_matrix(Am, Anz, Aindptr, Aindices, Adata, rows, cols):
     """
     Get SCS arbitrary sub-matrix
     :param A: CSC matrix
     :param rows: row indices to keep
     :param cols: column indices to keep
-    :return: CSC sub-matrix
+    :return: CSC sub-matrix (n, new_col_ptr, new_row_ind, new_val)
     """
     n_rows = len(rows)
     n_cols = len(cols)

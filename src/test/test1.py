@@ -4,12 +4,12 @@ from scipy.sparse import csc_matrix, random
 
 from CSparse.utils import scipy_to_mat
 
-np.set_printoptions( linewidth=100000)
+np.set_printoptions(linewidth=100000)
 
 
 def test1():
     np.random.seed(0)
-    k = 1000
+    k = 2000
     m, n = k, k
 
     A = csc_matrix(random(m, n, density=0.2))
@@ -30,15 +30,18 @@ def test1():
     # ---------------------------------------------------------------------
     # CSparse3
     # ---------------------------------------------------------------------
-    t = time()
+
     A2 = scipy_to_mat(A)
     B2 = scipy_to_mat(B)
+
+    t = time()
     C2 = A2 + B2
     D2 = A2 - B2
     F2 = A2 * B2
     G2 = C2 * x
-    H2 = A2 * 5.0
+    H2 = A2 * 5
     print('CSparse\t', time() - t)
+
     # ---------------------------------------------------------------------
     # check
     # ---------------------------------------------------------------------
