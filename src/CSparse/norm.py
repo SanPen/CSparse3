@@ -17,24 +17,32 @@
 # License along with this Module; if not, write to the Free Software
 # Foundation, Inc, 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
 
-from scipy.sparse import csc_matrix
+"""
+THis is the pure python version where the cython code is outlined
+CSparse3.py: a Concise Sparse matrix Python package
 
-import pyximport
-pyximport.install()
-from csparse3 import CscMat
+@author: Timothy A. Davis
+@author: Richard Lincoln
+@author: Santiago Peñate Vera
+"""
+
+import numba as nb
 
 
+@nb.njit("f8(i8, i4[:], f8[:])")
+def csc_norm(n, Ap, Ax):
+    """
+    Computes the 1-norm of a sparse matrix = max (sum (abs (A))), largest
+    column sum.
 
-def scipy_to_mat(scipy_mat: csc_matrix):
+    @param A: column-compressed matrix
+    @return: the 1-norm if successful, -1 on error
+    """
+    norm = 0
 
-    mat = CscMat()
-
-    mat.m, mat.n = scipy_mat.shape
-    mat.nz = -1
-    mat.data = scipy_mat.data.tolist()
-    mat.indices = scipy_mat.indices.tolist()
-    mat.indptr = scipy_mat.indptr.tolist()
-    mat.nzmax = scipy_mat.nnz
-
-    return mat
-
+    for j in range(n):
+        s = 0
+        for p in range(Ap[j], Ap[j + 1]):
+            s += abs(Ax[p])
+        norm = max(norm, s)
+    return norm

@@ -19,7 +19,7 @@
 import numpy as np
 from scipy.sparse import csc_matrix
 
-from CSparse.csparse3 import CscMat
+from CSparse.csc import CscMat
 
 
 def scipy_to_mat(scipy_mat: csc_matrix):
