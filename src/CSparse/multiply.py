@@ -37,16 +37,16 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
                     Bm, Bn, Bindptr, Bindices, Bdata):
     """
     Sparse matrix multiplication, C = A*B
-    :param Am:
-    :param An:
-    :param Aindptr:
-    :param Aindices:
-    :param Adata:
-    :param Bm:
-    :param Bn:
-    :param Bindptr:
-    :param Bindices:
-    :param Bdata:
+    :param Am: number of rows in A
+    :param An: number of columns in A
+    :param Aindptr: column pointers of A
+    :param Aindices: indices of A
+    :param Adata: data of A
+    :param Bm: number of rows in B
+    :param Bn: number of columns in B
+    :param Bindptr: column pointers of B
+    :param Bindices: indices of B
+    :param Bdata: data of B
     :return: Cm, Cn, Cp, Ci, Cx, Cnzmax
     """
 
