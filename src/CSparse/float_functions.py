@@ -70,22 +70,21 @@ def csc_sprealloc_f(An, Aindptr, Aindices, Adata, nzmax):
     :param nzmax:new maximum number of entries
     :return: indices, data, nzmax
     """
-    """
-    @param A: column-compressed matrix
-    @param nzmax:
-    @return: true if successful, false on error
-    """
 
     if nzmax <= 0:
         nzmax = Aindptr[An]
 
     length = min(nzmax, len(Aindices))
-    Ainew = ialloc(nzmax)
-    _copy_i(Aindices, Ainew, length)
+    Ainew = np.empty(nzmax, dtype=nb.int32)  # ialloc(nzmax)
+    # _copy_i(Aindices, Ainew, length)
+    for i in range(length):
+        Ainew[i] = Aindices[i]
 
     length = min(nzmax, len(Adata))
-    Axnew = xalloc(nzmax)
-    _copy_f(Adata, Axnew, length)
+    Axnew = np.empty(nzmax, dtype=nb.float64)  # xalloc(nzmax)
+    # _copy_f(Adata, Axnew, length)
+    for i in range(length):
+        Axnew[i] = Adata[i]
 
     return Ainew, Axnew, nzmax
 
@@ -104,7 +103,7 @@ def csc_scatter_f(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
     :param mark: mark value of w
     :param Ci: pattern of x accumulated in C.i
     :param nz: pattern of x placed in C starting at C.i[nz]
-    :return: new value of nz, -1 on error
+    :return: new value of nz, -1 on error, x and w are modified
     """
 
     for p in range(Ap[j], Ap[j + 1]):

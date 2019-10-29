@@ -32,7 +32,7 @@ from CSparse.float_functions import csc_spalloc_f, csc_scatter_f, csc_sprealloc_
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
-         parallel=True)
+         parallel=True, nogil=True, fastmath=True)
 def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
                     Bm, Bn, Bindptr, Bindices, Bdata):
     """
@@ -61,10 +61,17 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
     bnz = Bp[n]
 
     w = np.zeros(n, dtype=nb.int32)  # ialloc(m)  # get workspace
+    x = np.empty(n, dtype=nb.float64)  # xalloc(m)  # get workspace
 
-    x = np.zeros(n, dtype=nb.float64)  # xalloc(m)  # get workspace
+    # Cm, Cn, Cp, Ci, Cx, Cnzmax = csc_spalloc_f(m, n, anz + bnz)  # allocate result (m, n, nzmax)
 
-    Cm, Cn, Cp, Ci, Cx, Cnzmax = csc_spalloc_f(m, n, anz + bnz)  # allocate result
+    # allocate result
+    Cm = m
+    Cn = n
+    Cnzmax = anz + bnz
+    Cp = np.empty(n + 1, dtype=nb.int32)
+    Ci = np.empty(Cnzmax, dtype=nb.int32)
+    Cx = np.empty(Cnzmax, dtype=nb.float64)
 
     for j in range(n):
 
@@ -86,7 +93,7 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
     return Cm, Cn, Cp, Ci, Cx, Cnzmax
 
 
-@nb.njit("f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])", parallel=True)
+@nb.njit("f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])", parallel=False)
 def csc_mat_vec_ff(m, n, Ap, Ai, Ax, x):
     """
     Sparse matrix times dense column vector, y = A * x.
@@ -95,8 +102,8 @@ def csc_mat_vec_ff(m, n, Ap, Ai, Ax, x):
     :param Ap: pointers
     :param Ai: indices
     :param Ax: data
-    :param x: size n, vector x
-    :return:size m, vector y
+    :param x: vector x (n)
+    :return: vector y (m)
     """
     y = np.zeros(n, dtype=nb.float64)
     for j in range(n):
