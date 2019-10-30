@@ -29,6 +29,7 @@ CSparse3.py: a Concise Sparse matrix Python package
 import numpy as np
 import numba as nb
 from CSparse.float_functions import csc_spalloc_f, csc_scatter_f, csc_sprealloc_f
+from CSparse.conversions import csc_to_csr, coo_to_csc
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
@@ -89,6 +90,48 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
     Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 0)  # remove extra space from C
 
     return Cm, Cn, Cp, Ci, Cx, Cnzmax
+
+
+def csc_multiply_ff2(Am, An, Aindptr, Aindices, Adata,
+                     Bm, Bn, Bindptr, Bindices, Bdata):
+
+    # filas x columnas -> CSR x CSC
+
+    # convert A to CSR
+    nnz_a = Aindptr[An]
+    nnz_b = Bindptr[Bn]
+    nnz = nnz_a + nnz_b
+    Ap = np.zeros(Am + 1, dtype=np.int32)
+    Ai = np.empty(nnz_a, dtype=np.int32)
+    Ax = np.empty(nnz_a, dtype=np.float64)
+    csc_to_csr(m=Am, n=An, Ap=Aindptr, Ai=Aindices, Ax=Adata, Bp=Ap, Bi=Ai, Bx=Ax)
+
+    Ti = np.empty(nnz, dtype=np.int32)
+    Tj = np.empty(nnz, dtype=np.int32)
+    Tx = np.empty(nnz, dtype=np.float)
+
+    k = 0
+    for i in range(Am):  # for each row of A
+
+        v = 0.0
+
+        for pb in range(Ap[i], Ap[i + 1]):  # for each value in the row i
+            xa = Ax[pb]
+
+            for j in range(Bn):  # for each column of B
+                for pb in range(Bindptr[j], Bindptr[j + 1]):  # for each value of the column b
+                    xb = Bdata[pb]
+                    v += xa * xb
+
+                # store the entry
+                Ti[k] = i
+                Tj[k] = j
+                Tx[k] = v
+                k += 1
+
+    Cm, Cn, Cp, Ci, Cx = coo_to_csc(m=Am, n=Bn, Ti=Ti, Tj=Tj, Tx=Tx, nz=nnz)
+
+    return Cm, Cn, Cp, Ci, Cx
 
 
 @nb.njit("f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])", parallel=False)
