@@ -33,5 +33,7 @@ def scipy_to_mat(scipy_mat: csc_matrix):
     mat.indptr = scipy_mat.indptr  # .astype(np.int64)
     mat.nzmax = scipy_mat.nnz
 
+    scipy_mat.tocsr()
+
     return mat
 

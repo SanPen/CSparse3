@@ -77,6 +77,12 @@ class CscMat:
                 value = data[k]
                 print(i, j, value)
 
+        For completeness, the CSR equivalent is
+                   0  1  2  3  4  5  6  7  8  9
+        data =    [4, 3, 9, 7, 8, 3, 8, 8, 9, 4]
+        indices = [0, 0, 1, 1, 2, 0, 2, 1, 2, 1]
+        indptr =  [0, 1, 3, 5, 7, 9, 10]
+
         @param m: number of rows
         @param n: number of columns
         @param nz_max: maximum number of entries
@@ -299,6 +305,20 @@ class CscMat:
         """
         return csc_to_dense(m=self.m, n=self.n, indptr=self.indptr, indices=self.indices, data=self.data)
 
+    def to_csr(self):
+        """
+        Get the CSR representation of this matrix
+        :return: Bp, Bi, Bx
+        """
+        nnz = self.indptr[self.n]
+        Bp = np.zeros(self.m + 1, dtype=int)
+        Bi = np.empty(nnz, dtype=int)
+        Bx = np.empty(nnz, dtype=float)
+
+        csc_to_csr(m=self.m, n=self.n, Ap=self.indptr, Ai=self.indices, Ax=self.data, Bp=Bp, Bi=Bi, Bx=Bx)
+
+        return Bp, Bi, Bx
+
     def dot(self, o) -> "CscMat":
         """
         Dot product
@@ -358,9 +378,44 @@ class CscMat:
         return mat
 
 
-@nb.njit("c16[:](i8)")
-def cpalloc(n):
-    return np.zeros(n, dtype=nb.complex128)
+# @nb.njit("void(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:], f8[:])")
+def csc_to_csr(m, n, Ap, Ai, Ax, Bp, Bi, Bx):
+    """
+    Convert a CSC Matrix into a CSR Matrix
+    :param m: number of rows
+    :param n: number of columns
+    :param Ap: indptr of the CSC matrix
+    :param Ai: indices of the CSC matrix
+    :param Ax: data of the CSC matrix
+    :param Bp: indptr of the CSR matrix (to compute, size 'm+1', has to be initialized to zeros)
+    :param Bi: indices of the CSR matrix (to compute, size nnz)
+    :param Bx: data of the CSR matrix (to compute, size nnz)
+    """
+    nnz = Ap[n]
+
+    for k in range(nnz):
+        Bp[Ai[k]] += 1
+
+    cum_sum = 0
+    for col in range(m):
+        temp = Bp[col]
+        Bp[col] = cum_sum
+        cum_sum += temp
+    Bp[m] = nnz
+
+    for row in range(n):
+        for jj in range(Ap[row], Ap[row+1]):
+            col = Ai[jj]
+            dest = Bp[col]
+            Bi[dest] = row
+            Bx[dest] = Ax[jj]
+            Bp[col] += 1
+
+    last = 0
+    for col in range(m):
+        temp = Bp[col]
+        Bp[col] = last
+        last = temp
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:])")
@@ -465,6 +520,7 @@ def csc_to_dense(m, n, indptr, indices, data):
     :return: 2d numpy array
     """
     val = np.zeros((m, n), dtype=nb.float64)
+    # val = np.zeros((m, n))
     for j in range(n):
         for p in range(indptr[j], indptr[j + 1]):
             val[indices[p], j] = data[p]
