@@ -311,13 +311,16 @@ class CscMat:
         :return: Bp, Bi, Bx
         """
         nnz = self.indptr[self.n]
-        Bp = np.zeros(self.m + 1, dtype=int)
-        Bi = np.empty(nnz, dtype=int)
-        Bx = np.empty(nnz, dtype=float)
+        Bp = np.zeros(self.m + 1, dtype=np.int32)
+        Bi = np.empty(nnz, dtype=np.int32)
+        Bx = np.empty(nnz, dtype=np.float64)
 
         csc_to_csr(m=self.m, n=self.n, Ap=self.indptr, Ai=self.indices, Ax=self.data, Bp=Bp, Bi=Bi, Bx=Bx)
 
         return Bp, Bi, Bx
+
+    def get_nnz(self):
+        return self.indptr[self.n]
 
     def dot(self, o) -> "CscMat":
         """
@@ -378,7 +381,7 @@ class CscMat:
         return mat
 
 
-# @nb.njit("void(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:], f8[:])")
+@nb.njit("void(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:], f8[:])")
 def csc_to_csr(m, n, Ap, Ai, Ax, Bp, Bi, Bx):
     """
     Convert a CSC Matrix into a CSR Matrix
@@ -520,7 +523,7 @@ def csc_to_dense(m, n, indptr, indices, data):
     :return: 2d numpy array
     """
     val = np.zeros((m, n), dtype=nb.float64)
-    # val = np.zeros((m, n))
+
     for j in range(n):
         for p in range(indptr[j], indptr[j + 1]):
             val[indices[p], j] = data[p]
