@@ -47,31 +47,32 @@ class CscMat:
         CSC sparse matrix
 
         Format explanation example
-            0   1  2
-            ________
-        0  |10      |
-        1  | 3  9   |
-        2  |    7  8|
-        3  | 3     8|
-        4  |    8  9|
-        5  |    4   |
+             0  1  2
+            _________
+        0  | 4       |
+        1  | 3  9    |
+        2  |    7  8 |
+        3  | 3     8 |
+        4  |    8  9 |
+        5  |    4    |
 
          cols = 3
          rows = 6
-                    0   1  2  3  4  5  6  7  8  9  <- these are the positions indicated by indptr
-         data =    [10, 3, 3, 9, 7, 8, 4, 8, 8, 9]     # stores the values
-         indices = [0 , 1, 3, 1, 2, 4, 5, 2, 3, 4]     # indicates the row index
-         indptr  = [0 , 3, 7, 10]                      # The length is cols + 1, stores the from and to indices that
-                                                         delimit a column
+                    0  1  2  3  4  5  6  7  8  9   <-- These are the positions indicated by indptr (jut to illustrate)
+         data =    [4, 3, 3, 9, 7, 8, 4, 8, 8, 9]      # stores the values
+         indices = [0, 1, 3, 1, 2, 4, 5, 2, 3, 4]      # indicates the row index
+         indptr  = [0, 3, 7, 10]                       # The length is cols + 1, stores the from and to indices that
+                                                         delimit a column.
                                                          i.e. the first column takes the indices and data from the
                                                          positions 0 to 3-1, this is
-                                                         column_idx = 0
-                                                         indices = [0 , 1, 3]  # row indices
+                                                         column_idx = 0        # (j)
+                                                         indices = [0 , 1, 3]  # row indices (i) of the column (j)
                                                          data    = [10, 3, 3]
 
-         typical loop:
-         for j in range(len(indptr)):  # same as range(cols + 1)
-            for k in range(indptr[j], indptr[j+1]):
+         Typical loop:
+
+         for j in range(len(indptr)):               # for every column, same as range(cols + 1)
+            for k in range(indptr[j], indptr[j+1]): # for every entry in the column
                 i = indices[k]
                 value = data[k]
                 print(i, j, value)
