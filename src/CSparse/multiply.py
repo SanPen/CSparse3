@@ -36,7 +36,7 @@ from CSparse.float_functions import csc_spalloc_f, csc_scatter_f, csc_sprealloc_
 def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
                     Bm, Bn, Bindptr, Bindices, Bdata):
     """
-    Sparse matrix multiplication, C = A*B
+    Sparse matrix multiplication, C = A*B where A and B are CSC sparse matrices
     :param Am: number of rows in A
     :param An: number of columns in A
     :param Aindptr: column pointers of A
@@ -62,8 +62,6 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
 
     w = np.zeros(n, dtype=nb.int32)  # ialloc(m)  # get workspace
     x = np.empty(n, dtype=nb.float64)  # xalloc(m)  # get workspace
-
-    # Cm, Cn, Cp, Ci, Cx, Cnzmax = csc_spalloc_f(m, n, anz + bnz)  # allocate result (m, n, nzmax)
 
     # allocate result
     Cm = m
@@ -105,7 +103,7 @@ def csc_mat_vec_ff(m, n, Ap, Ai, Ax, x):
     :param x: vector x (n)
     :return: vector y (m)
     """
-    y = np.zeros(n, dtype=nb.float64)
+    y = np.zeros(m, dtype=nb.float64)
     for j in range(n):
         for p in range(Ap[j], Ap[j + 1]):
             y[Ai[p]] += Ax[p] * x[j]

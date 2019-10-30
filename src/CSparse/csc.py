@@ -44,6 +44,38 @@ class CscMat:
     """
     def __init__(self, m=0, n=0, nz_max=0):
         """
+        CSC sparse matrix
+
+        Format explanation example
+            0   1  2
+            ________
+        0  |10      |
+        1  | 3  9   |
+        2  |    7  8|
+        3  | 3     8|
+        4  |    8  9|
+        5  |    4   |
+
+         cols = 3
+         rows = 6
+                    0   1  2  3  4  5  6  7  8  9  <- these are the positions indicated by indptr
+         data =    [10, 3, 3, 9, 7, 8, 4, 8, 8, 9]     # stores the values
+         indices = [0 , 1, 3, 1, 2, 4, 5, 2, 3, 4]     # indicates the row index
+         indptr  = [0 , 3, 7, 10]                      # The length is cols + 1, stores the from and to indices that
+                                                         delimit a column
+                                                         i.e. the first column takes the indices and data from the
+                                                         positions 0 to 3-1, this is
+                                                         column_idx = 0
+                                                         indices = [0 , 1, 3]  # row indices
+                                                         data    = [10, 3, 3]
+
+         typical loop:
+         for j in range(len(indptr)):  # same as range(cols + 1)
+            for k in range(indptr[j], indptr[j+1]):
+                i = indices[k]
+                value = data[k]
+                print(i, j, value)
+
         @param m: number of rows
         @param n: number of columns
         @param nz_max: maximum number of entries
@@ -58,7 +90,8 @@ class CscMat:
         # number of columns
         self.n = n
 
-        # column pointers (size n+1) or col indices (size nzmax)
+        # column pointers (size n+1) or col indices (size n+1)
+        # they indicate from which to which index does each column take
         self.indptr = ialloc(n + 1)
 
         # row indices, size nzmax
@@ -194,6 +227,7 @@ class CscMat:
         if isinstance(other, CscMat):
             # mat-mat multiplication
             C = CscMat()
+
             C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = csc_multiply_ff(Am=self.m,
                                                                              An=self.n,
                                                                              Aindptr=self.indptr,
