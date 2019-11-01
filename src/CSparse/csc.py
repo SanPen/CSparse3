@@ -37,6 +37,7 @@ from CSparse.add import csc_add_ff
 from CSparse.multiply import csc_multiply_ff, csc_mat_vec_ff
 from CSparse.graph import find_islands
 from CSparse.conversions import csc_to_csr
+from CSparse.utils import csc_diagonal, stack_4_by_4_ff
 
 
 class CscMat:
@@ -72,7 +73,7 @@ class CscMat:
 
          Typical loop:
 
-         for j in range(len(indptr)):               # for every column, same as range(cols + 1)
+         for j in range(n):  # for every column, same as range(cols)
             for k in range(indptr[j], indptr[j+1]): # for every entry in the column
                 i = indices[k]
                 value = data[k]
@@ -492,3 +493,54 @@ def csc_to_dense(m, n, indptr, indices, data):
             val[indices[p], j] = data[p]
     return val
 
+
+def scipy_to_mat(scipy_mat):
+
+    mat = CscMat()
+
+    mat.m, mat.n = scipy_mat.shape
+    mat.nz = -1
+    mat.data = scipy_mat.data
+    mat.indices = scipy_mat.indices  # .astype(np.int64)
+    mat.indptr = scipy_mat.indptr  # .astype(np.int64)
+    mat.nzmax = scipy_mat.nnz
+
+    scipy_mat.tocsr()
+
+    return mat
+
+
+def Diag(m, n, value=1.0):
+    """
+    Convert this matrix into a diagonal matrix with the value in the diagonal
+    :param m:
+    :param n:
+    :param value: float value
+    """
+    A = CscMat(m, n)
+    A.indices, A.indptr, A.data = csc_diagonal(A.m, value)
+    A.n = A.m
+    A.nz = A.indptr[A.n]
+
+    return A
+
+
+def pack_4_by_4(A11: CscMat, A12: CscMat, A21: CscMat, A22: CscMat):
+    """
+
+    :param A11:
+    :param A12:
+    :param A21:
+    :param A22:
+    :return:
+    """
+
+    m, n, Pi, Pp, Px = stack_4_by_4_ff(am=A11.m, an=A11.n, Ai=A11.indices, Ap=A11.indptr, Ax=A11.data,
+                                       bm=A12.m, bn=A12.n, Bi=A12.indices, Bp=A12.indptr, Bx=A12.data,
+                                       cm=A21.m, cn=A21.n, Ci=A21.indices, Cp=A21.indptr, Cx=A21.data,
+                                       dm=A22.m, dn=A22.n, Di=A22.indices, Dp=A22.indptr, Dx=A22.data)
+    P = CscMat(m, n)
+    P.indptr = Pp
+    P.indices = Pi
+    P.data = Px
+    return P

@@ -64,7 +64,7 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
     # allocate result
     Cm = m
     Cn = n
-    Cnzmax = int(math.sqrt(m)) * anz + bnz
+    Cnzmax = int(math.sqrt(m)) * anz + bnz  # the trick here is to allocate just enough memory to avoid reallocating
     Cp = np.empty(n + 1, dtype=nb.int32)
     Ci = np.empty(Cnzmax, dtype=nb.int32)
     Cx = np.empty(Cnzmax, dtype=nb.float64)
@@ -74,7 +74,7 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
         # claim more space
         if nz + m > Cnzmax:
             Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
-            print('Allocating')
+            print('Re-Allocating')
 
         # column j of C starts here
         Cp[j] = nz

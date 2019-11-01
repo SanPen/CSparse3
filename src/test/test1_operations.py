@@ -2,7 +2,7 @@ import numpy as np
 from time import time
 from scipy.sparse import csc_matrix, random
 
-from CSparse.utils import scipy_to_mat
+from CSparse.csc import scipy_to_mat
 
 np.set_printoptions(linewidth=100000)
 
