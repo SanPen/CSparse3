@@ -9,11 +9,11 @@ np.set_printoptions(linewidth=100000)
 
 def test1(check=True):
     np.random.seed(0)
-    k = 1000
+    k = 2000
     m, n = k, k
 
-    A = csc_matrix(random(m, n, density=0.2))
-    B = csc_matrix(random(m, n, density=0.2))
+    A = csc_matrix(random(m, n, density=0.02))
+    B = csc_matrix(random(m, n, density=0.02))
     x = np.random.random(m)
 
     # ---------------------------------------------------------------------
@@ -51,6 +51,9 @@ def test1(check=True):
         pass_mult = (F.todense() == F2.todense()).all()
         pass_mat_vec = (G == G2).all()
         pass_mult_scalar = (H.todense() == H2.todense()).all()
+
+        # print(F.todense())
+        # print(F2)
 
         assert pass_sum
         assert pass_subt

@@ -116,3 +116,32 @@ def csc_scatter_f(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
         else:
             x[i] += beta * Ax[p]  # i exists in C(:,j) already
     return nz
+
+
+@nb.njit("i8(i4[:], i4[:], f8[:], i8, f8, i4[:], f8[:], i8, i4[:], i8)")
+def csc_scatter_ff(Aindptr, Aindices, Adata, j, beta, w, x, mark, Ci, nz):
+    """
+    Scatters and sums a sparse vector A(:,j) into a dense vector, x = x + beta * A(:,j)
+    :param Aindptr:
+    :param Aindices:
+    :param Adata:
+    :param j: the column of A to use
+    :param beta: scalar multiplied by A(:,j)
+    :param w: size m, node i is marked if w[i] = mark
+    :param x: size m, ignored if null
+    :param mark: mark value of w
+    :param Ci: pattern of x accumulated in C.i
+    :param nz: pattern of x placed in C starting at C.i[nz]
+    :return: new value of nz, -1 on error, x and w are modified
+    """
+
+    for p in range(Aindptr[j], Aindptr[j + 1]):
+        i = Aindices[p]  # A(i,j) is nonzero
+        if w[i] < mark:
+            w[i] = mark  # i is new entry in column j
+            Ci[nz] = i  # add i to pattern of C(:,j)
+            nz += 1
+            x[i] = beta * Adata[p]  # x(i) = beta*A(i,j)
+        else:
+            x[i] += beta * Adata[p]  # i exists in C(:,j) already
+    return nz

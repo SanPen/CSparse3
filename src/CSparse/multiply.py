@@ -28,12 +28,13 @@ CSparse3.py: a Concise Sparse matrix Python package
 
 import numpy as np
 import numba as nb
-from CSparse.float_functions import csc_spalloc_f, csc_scatter_f, csc_sprealloc_f
+import math
+from CSparse.float_functions import csc_spalloc_f, csc_scatter_f, csc_sprealloc_f, csc_scatter_ff
 from CSparse.conversions import csc_to_csr, coo_to_csc
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
-         parallel=True, nogil=True, fastmath=True)
+         parallel=False, nogil=True, fastmath=True, cache=True)
 def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
                     Bm, Bn, Bindptr, Bindices, Bdata):
     """
@@ -52,14 +53,10 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
     """
 
     nz = 0
-
     m = Am
-
     anz = Aindptr[An]
-
+    bnz = Bindptr[Bn]
     n, Bp, Bi, Bx = Bn, Bindptr, Bindices, Bdata
-
-    bnz = Bp[n]
 
     w = np.zeros(n, dtype=nb.int32)  # ialloc(m)  # get workspace
     x = np.empty(n, dtype=nb.float64)  # xalloc(m)  # get workspace
@@ -67,20 +64,24 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
     # allocate result
     Cm = m
     Cn = n
-    Cnzmax = anz + bnz
+    Cnzmax = int(math.sqrt(m)) * anz + bnz
     Cp = np.empty(n + 1, dtype=nb.int32)
     Ci = np.empty(Cnzmax, dtype=nb.int32)
     Cx = np.empty(Cnzmax, dtype=nb.float64)
 
     for j in range(n):
 
+        # claim more space
         if nz + m > Cnzmax:
             Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
+            print('Allocating')
 
-        Cp[j] = nz  # column j of C starts here
+        # column j of C starts here
+        Cp[j] = nz
 
         for p in range(Bp[j], Bp[j + 1]):
-            nz = csc_scatter_f(Aindptr, Aindices, Adata, Bi[p], Bx[p], w, x, j + 1, Ci, nz)
+            nz = csc_scatter_ff(Aindptr=Aindptr, Aindices=Aindices, Adata=Adata,
+                                j=Bi[p], beta=Bx[p], w=w, x=x, mark=j + 1, Ci=Ci, nz=nz)
 
         for p in range(Cp[j], nz):
             Cx[p] = x[Ci[p]]
@@ -92,46 +93,45 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
     return Cm, Cn, Cp, Ci, Cx, Cnzmax
 
 
-def csc_multiply_ff2(Am, An, Aindptr, Aindices, Adata,
-                     Bm, Bn, Bindptr, Bindices, Bdata):
+# @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
+#          parallel=False, nogil=True, fastmath=True)
+def csr_multiply_ff(p, q, IA, JA, A, Bm, r, IB, JB, B):
 
-    # filas x columnas -> CSR x CSC
+    t = np
+    xb = np.zeros(r, dtype=t.int32)
+    x = np.zeros(r, dtype=t.float64)
 
-    # convert A to CSR
-    nnz_a = Aindptr[An]
-    nnz_b = Bindptr[Bn]
-    nnz = nnz_a + nnz_b
-    Ap = np.zeros(Am + 1, dtype=np.int32)
-    Ai = np.empty(nnz_a, dtype=np.int32)
-    Ax = np.empty(nnz_a, dtype=np.float64)
-    csc_to_csr(m=Am, n=An, Ap=Aindptr, Ai=Aindices, Ax=Adata, Bp=Ap, Bi=Ai, Bx=Ax)
+    ibot = (len(A) + len(B)) * 500  # nnz
+    IC = np.zeros(p + 1, dtype=t.int32)
+    JC = np.zeros(ibot, dtype=t.int32)
+    C = np.zeros(ibot, dtype=t.float64)
 
-    Ti = np.empty(nnz, dtype=np.int32)
-    Tj = np.empty(nnz, dtype=np.int32)
-    Tx = np.empty(nnz, dtype=np.float)
+    ip = 0
+    for i in range(p):
+        IC[i] = ip
 
-    k = 0
-    for i in range(Am):  # for each row of A
+        for jp in range(IA[i], IA[i+1]):
+            j = JA[jp]
 
-        v = 0.0
+            for kp in range(IB[j], IB[j+1]):
 
-        for pb in range(Ap[i], Ap[i + 1]):  # for each value in the row i
-            xa = Ax[pb]
+                k = JB[kp]
 
-            for j in range(Bn):  # for each column of B
-                for pb in range(Bindptr[j], Bindptr[j + 1]):  # for each value of the column b
-                    xb = Bdata[pb]
-                    v += xa * xb
+                if xb[k] != i+1:
+                    JC[ip] = k
+                    ip += 1
+                    xb[k] = i
+                    x[k] = A[jp] * B[kp]
+                else:
+                    x[k] += A[jp] * B[kp]
 
-                # store the entry
-                Ti[k] = i
-                Tj[k] = j
-                Tx[k] = v
-                k += 1
+        # if ip > (ibot - r):  # request extra storage
+        for vp in range(IC[i], ip):
+            v = JC[vp]
+            C[vp] = x[v]
+        IC[p] = ip
 
-    Cm, Cn, Cp, Ci, Cx = coo_to_csc(m=Am, n=Bn, Ti=Ti, Tj=Tj, Tx=Tx, nz=nnz)
-
-    return Cm, Cn, Cp, Ci, Cx
+    return p, r, IC, JC, C, ibot
 
 
 @nb.njit("f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])", parallel=False)
