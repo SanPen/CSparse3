@@ -117,27 +117,42 @@ class CscMat:
         if isinstance(key, tuple):
 
             if isinstance(key[0], int) and isinstance(key[1], int):
+                # (a, b) -> value
 
                 pass
 
             elif isinstance(key[0], int) and isinstance(key[1], slice):
+                # (a, :) -> row a
 
                 pass
 
             elif isinstance(key[0], slice) and isinstance(key[1], int):
+                # (:, b) -> column b
 
                 pass
 
             elif isinstance(key[0], slice) and isinstance(key[1], slice):
-                pass
+                # (:, :) -> self
+                return self
 
             elif isinstance(key[0], int) and isinstance(key[1], Iterable):
+                # (a, list_b) -> vector of row a and columns given by list_b
                 pass
 
             elif isinstance(key[0], Iterable) and isinstance(key[1], int):
+                # (list_a, b) -> vector of column b and rows given by list_a
+                pass
+
+            elif isinstance(key[0], slice) and isinstance(key[1], Iterable):
+                # (:, list_b) -> Submatrix with the columns given by list_b
+                pass
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], slice):
+                # (list_a, :) -> Submatrix with the rows given by list_a
                 pass
 
             elif isinstance(key[0], Iterable) and isinstance(key[1], Iterable):
+                # (list_a, list_b)  -> non continous sub-matrix
 
                 B = CscMat()
                 n, B.indptr, B.indices, B.data = csc_sub_matrix(Am=self.m,
@@ -153,13 +168,13 @@ class CscMat:
                 return B
 
         else:
-            raise Exception('The indices must be a tuple (- , -)')
+            raise Exception('The indices must be a tuple :/')
 
     def __setitem__(self, key, value):
-        pass
+        raise Exception('Setting values is not allowed in a CSC Matrix, use a Lil Matrix instead and convert it to CSC')
 
     def __setslice__(self, i, j, sequence):
-        pass
+        raise Exception('Setting values is not allowed in a CSC Matrix, use a Lil Matrix instead and convert it to CSC')
 
     def __str__(self) -> str:
         """

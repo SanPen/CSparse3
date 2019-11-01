@@ -44,32 +44,128 @@ class LilMat:
         self.m = m
         self.n = n
         self.nz = 0
-        # in power systems, the rows of a sparse matrix always exist
-        self.data = [{} for i in range(m)]
+        # in power systems, the rows of a sparse matrix always exist (this is a dictionary of dictionaries with values)
+        self.data = [{} for i in range(m)]  # -> [row][column] -> value
 
-    def __getitem__(self, coord):
+    def __getitem__(self, key):
         """
         get element
-        :param coord:
-        :return:
+        :param key: any combination of int, Slice and Iterable
+        :return: LiL matrix or int instance
         """
-        row = self.data[coord[0]]
-        if coord[1] in row.keys():
-            return row[coord[1]]
-        else:
-            return 0.0
 
-    def __setitem__(self, coord, new_value):
+        if isinstance(key, tuple):
+
+            if isinstance(key[0], int) and isinstance(key[1], int):
+                # (a, b) -> value
+                row = self.data[key[0]]
+                if key[1] in row.keys():
+                    return row[key[1]]
+                else:
+                    return 0.0
+
+            elif isinstance(key[0], int) and isinstance(key[1], slice):
+                # (a, :) -> row a as a LiL matrix
+                val = LilMat(1, self.n)
+                val.data = self.data[key[0]]
+                return val
+
+            elif isinstance(key[0], slice) and isinstance(key[1], int):
+                # (:, b) -> column b as a LiL matrix
+                val = LilMat(self.m, 1)
+                val.data = [{k: v for k, v in d.items() if k == key[1]} for d in self.data]
+                return val
+
+            elif isinstance(key[0], slice) and isinstance(key[1], slice):
+                # (:, :) -> self
+                return self
+
+            elif isinstance(key[0], int) and isinstance(key[1], Iterable):
+                # (a, list_b) -> vector of row a and columns given by list_b as a LiL matrix
+                val = LilMat(1, len(key[1]))
+                val.data = [{k: v for k, v in self.data[key[0]].items() if k in key[1]}]
+                return val
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], int):
+                # (list_a, b) -> vector of column b and rows given by list_a as a LiL matrix
+                val = LilMat(len(key[0]), 1)
+                val.data = [{k: v for k, v in self.data[a].items() if k == key[1]} for a in key[0]]
+                return val
+
+            elif isinstance(key[0], slice) and isinstance(key[1], Iterable):
+                # (:, list_b) -> Sub-matrix with the columns given by list_b as a LiL matrix
+                val = LilMat(self.m, len(key[1]))
+                val.data = [{k: v for k, v in d.items() if k in key[1]} for d in self.data]
+                return val
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], slice):
+                # (list_a, :) -> Sub-matrix with the rows given by list_a as a LiL matrix
+                val = LilMat(len(key[0]), self.n)
+                val.data = [self.data[a] for a in key[0]]
+                return val
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], Iterable):
+                # (list_a, list_b)  -> non continuous sub-matrix as a LiL matrix
+                val = LilMat(len(key[0]), len(key[1]))
+                val.data = [{k: v for k, v in self.data[a].items() if k in key[1]} for a in key[0]]
+                return val
+
+        else:
+            raise Exception('The indices must be a tuple :/')
+
+    def __setitem__(self, key, new_value):
         """
         set element
-        :param coord:
-        :param new_value:
-        :return:
+        :param key: any combination of int, Slice and Iterable
+        :param new_value: float, vector or LiL matrix
         """
-        row = self.data[coord[0]]
-        if coord[1] not in row.keys():
-            self.nz += 1
-        row[coord[1]] = new_value
+
+        if isinstance(key, tuple):
+
+            if isinstance(key[0], int) and isinstance(key[1], int):
+                # (a, b) <- value
+
+                row = self.data[key[0]]
+                if key[1] not in row.keys():
+                    self.nz += 1
+                row[key[1]] = new_value
+
+            elif isinstance(key[0], int) and isinstance(key[1], slice):
+                # (a, :) <- row a
+
+                pass
+
+            elif isinstance(key[0], slice) and isinstance(key[1], int):
+                # (:, b) <- column b
+
+                pass
+
+            elif isinstance(key[0], slice) and isinstance(key[1], slice):
+                # (:, :) <- all
+                pass
+
+            elif isinstance(key[0], int) and isinstance(key[1], Iterable):
+                # (a, list_b) <- vector of row a and columns given by list_b
+                pass
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], int):
+                # (list_a, b) <- vector of column b and rows given by list_a
+                pass
+
+            elif isinstance(key[0], slice) and isinstance(key[1], Iterable):
+                # (:, list_b) <- Sub-matrix with the columns given by list_b
+                pass
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], slice):
+                # (list_a, :) <- Sub-matrix with the rows given by list_a
+                pass
+
+            elif isinstance(key[0], Iterable) and isinstance(key[1], Iterable):
+                # (list_a, list_b)  <- non continuous sub-matrix
+                pass
+
+        else:
+            raise Exception('The indices must be a tuple :/')
 
     def __len__(self):
         """
