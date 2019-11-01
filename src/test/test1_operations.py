@@ -9,7 +9,7 @@ np.set_printoptions(linewidth=100000)
 
 def test1(check=True):
     np.random.seed(0)
-    k = 2000
+    k = 4000
     m, n = k, k
 
     A = csc_matrix(random(m, n, density=0.02))
@@ -25,12 +25,12 @@ def test1(check=True):
     F = A * B
     G = C * x
     H = A * 5
+    I = A.T
     print('Scipy\t', time() - t)
 
     # ---------------------------------------------------------------------
     # CSparse3
     # ---------------------------------------------------------------------
-    import numba as nb
     A2 = scipy_to_mat(A)
     B2 = scipy_to_mat(B)
 
@@ -40,6 +40,7 @@ def test1(check=True):
     F2 = A2 * B2
     G2 = C2 * x
     H2 = A2 * 5
+    I2 = A2.t()
     print('CSparse\t', time() - t)
 
     # ---------------------------------------------------------------------
@@ -51,6 +52,7 @@ def test1(check=True):
         pass_mult = (F.todense() == F2.todense()).all()
         pass_mat_vec = (G == G2).all()
         pass_mult_scalar = (H.todense() == H2.todense()).all()
+        pass_transpose = (I.todense() == I2.todense()).all()
 
         # print(F.todense())
         # print(F2)
@@ -60,12 +62,14 @@ def test1(check=True):
         assert pass_mult
         assert pass_mat_vec
         assert pass_mult_scalar
+        assert pass_transpose
 
         print('+\t\t', pass_sum)
         print('-\t\t', pass_subt)
         print('mat mat\t', pass_mult)
         print('mat vec\t', pass_mat_vec)
         print('scalar *', pass_mult_scalar)
+        print('Transpose', pass_transpose)
 
 
 

@@ -20,6 +20,7 @@ import numpy as np
 import numba as nb
 
 
+@nb.njit("Tuple((i4[:], i4[:], f8[:]))(i8, f8)")
 def csc_diagonal(m, value=1.0):
     """
 
@@ -34,6 +35,26 @@ def csc_diagonal(m, value=1.0):
         indptr[i] = i
         indices[i] = i
         data[i] = value
+    indptr[m] = m
+
+    return indices, indptr, data
+
+
+@nb.njit("Tuple((i4[:], i4[:], f8[:]))(i8, f8[:])")
+def csc_diagonal_from_array(m, array):
+    """
+
+    :param m:
+    :param array:
+    :return:
+    """
+    indptr = np.empty(m + 1, dtype=np.int32)
+    indices = np.empty(m, dtype=np.int32)
+    data = np.empty(m, dtype=np.float64)
+    for i in range(m):
+        indptr[i] = i
+        indices[i] = i
+        data[i] = array[i]
     indptr[m] = m
 
     return indices, indptr, data

@@ -37,7 +37,7 @@ from CSparse.add import csc_add_ff
 from CSparse.multiply import csc_multiply_ff, csc_mat_vec_ff
 from CSparse.graph import find_islands
 from CSparse.conversions import csc_to_csr
-from CSparse.utils import csc_diagonal, stack_4_by_4_ff
+from CSparse.utils import csc_diagonal, csc_diagonal_from_array, stack_4_by_4_ff
 
 
 class CscMat:
@@ -383,9 +383,7 @@ class CscMat:
         return mat
 
 
-
-
-@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:])")
+@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:])", fastmath=True)
 def csc_transpose(m, n, Ap, Ai, Ax):
     """
     Transpose matrix
@@ -419,8 +417,7 @@ def csc_transpose(m, n, Ap, Ai, Ax):
             q = w[Ai[p]]
             w[Ai[p]] += 1
             Ci[q] = j  # place A(i,j) as entry C(j,i)
-            if Cx is not None:
-                Cx[q] = Ax[p]
+            Cx[q] = Ax[p]
 
     return Cm, Cn, Cp, Ci, Cx
 
@@ -510,15 +507,32 @@ def scipy_to_mat(scipy_mat):
     return mat
 
 
-def Diag(m, n, value=1.0):
+def Diag(m, n, value=1.0) -> CscMat:
     """
     Convert this matrix into a diagonal matrix with the value in the diagonal
     :param m:
     :param n:
     :param value: float value
+    :return CscMat
     """
     A = CscMat(m, n)
     A.indices, A.indptr, A.data = csc_diagonal(A.m, value)
+    A.n = A.m
+    A.nz = A.indptr[A.n]
+
+    return A
+
+
+def Diags(array: np.ndarray) -> CscMat:
+    """
+    Convert array into diagonal matrix
+    :param array: numpy array float64
+    :return CscMat
+    """
+    m = array.shape[0]
+    n = m
+    A = CscMat(m, n)
+    A.indices, A.indptr, A.data = csc_diagonal_from_array(A.m, array)
     A.n = A.m
     A.nz = A.indptr[A.n]
 

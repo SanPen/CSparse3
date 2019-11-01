@@ -1,8 +1,11 @@
+from CSparse.lil import LilMat
+
+
 def test2():
     eps = 1e-9
     n = 10
 
-    T = TripletsMat(n, n)
+    T = LilMat(n, n)
     T[:, :] = 0
     T[2, 2] = 5
     T[4, 4] = 6

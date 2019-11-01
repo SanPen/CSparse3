@@ -18,7 +18,7 @@
 # Foundation, Inc, 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
 
 """
-THis is the pure python version where the cython code is outlined
+This is the pure python version where the cython code is outlined
 CSparse3.py: a Concise Sparse matrix Python package
 
 @author: Timothy A. Davis
@@ -29,8 +29,7 @@ CSparse3.py: a Concise Sparse matrix Python package
 import numpy as np
 import numba as nb
 import math
-from CSparse.float_functions import csc_spalloc_f, csc_scatter_f, csc_sprealloc_f, csc_scatter_ff
-from CSparse.conversions import csc_to_csr, coo_to_csc
+from CSparse.float_functions import csc_sprealloc_f, csc_scatter_ff
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
