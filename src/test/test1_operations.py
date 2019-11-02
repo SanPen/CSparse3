@@ -1,6 +1,6 @@
 import numpy as np
 from time import time
-from scipy.sparse import csc_matrix, random
+from scipy.sparse import csc_matrix, random, diags
 
 from CSparse3.csc import scipy_to_mat
 
@@ -9,11 +9,11 @@ np.set_printoptions(linewidth=100000)
 
 def test1(check=True):
     np.random.seed(0)
-    k = 4000
+    k = 500
     m, n = k, k
 
-    A = csc_matrix(random(m, n, density=0.02))
-    B = csc_matrix(random(m, n, density=0.02))
+    A = csc_matrix(random(m, n, density=0.01)) + diags(np.ones(n))
+    B = csc_matrix(random(m, n, density=0.01)) + diags(np.ones(n))
     x = np.random.random(m)
 
     # ---------------------------------------------------------------------
@@ -70,7 +70,6 @@ def test1(check=True):
         print('mat vec\t', pass_mat_vec)
         print('scalar *', pass_mult_scalar)
         print('Transpose', pass_transpose)
-
 
 
 if __name__ == '__main__':
