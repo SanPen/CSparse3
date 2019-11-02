@@ -26,16 +26,11 @@ CSparse3.py: a Concise Sparse matrix Python package
 @author: Santiago Peñate Vera
 """
 
-from sys import stdout
-import numpy as np  # this is for compatibility with numpy
-import numba as nb
-from numba.typed import List
-from collections import Iterable
-from CSparse.int_functions import *
-from CSparse.float_functions import *
-from CSparse.conversions import coo_to_csc
-from CSparse.csc import CscMat
-from CSparse.graph import find_islands
+from collections.abc import Iterable
+from CSparse3.float_functions import *
+from CSparse3.conversions import coo_to_csc
+from CSparse3.csc import CscMat
+from CSparse3.utils import slice_to_range, dense_to_str
 
 
 class LilMat:
@@ -46,6 +41,9 @@ class LilMat:
         self.nz = 0
         # in power systems, the rows of a sparse matrix always exist (this is a dictionary of dictionaries with values)
         self.data = [{} for i in range(m)]  # -> [row][column] -> value
+
+    def clear(self):
+        self.data = [{} for i in range(self.m)]
 
     def __getitem__(self, key):
         """
@@ -124,45 +122,137 @@ class LilMat:
 
             if isinstance(key[0], int) and isinstance(key[1], int):
                 # (a, b) <- value
-
-                row = self.data[key[0]]
-                if key[1] not in row.keys():
-                    self.nz += 1
-                row[key[1]] = new_value
+                self.data[key[0]][key[1]] = new_value
 
             elif isinstance(key[0], int) and isinstance(key[1], slice):
-                # (a, :) <- row a
-
-                pass
+                # (a, slice) <- row a
+                rng_j = slice_to_range(key[1], self.n)
+                if isinstance(new_value, Iterable):
+                    # set array to row a
+                    assert len(rng_j) == len(new_value)
+                    for i, k in enumerate(rng_j):
+                        self.data[key[0]][k] = new_value[i]
+                else:
+                    # set value to all the array
+                    for k in rng_j:
+                        self.data[key[0]][k] = new_value
 
             elif isinstance(key[0], slice) and isinstance(key[1], int):
-                # (:, b) <- column b
-
-                pass
+                # (slice, b) <- column b
+                rng_i = slice_to_range(key[0], self.m)
+                if isinstance(new_value, Iterable):
+                    # set array to row a
+                    assert len(rng_i) == len(new_value)
+                    for k, i in enumerate(rng_i):
+                        self.data[i][key[1]] = new_value[k]
+                else:
+                    # set value to all the array
+                    for i in rng_i:
+                        self.data[i][key[1]] = new_value
 
             elif isinstance(key[0], slice) and isinstance(key[1], slice):
                 # (:, :) <- all
-                pass
+                if new_value == 0:
+                    self.clear()
+                else:
+                    # raise Exception('If you want to set all the values, you should not be using a sparse matrix :/')
+
+                    rng_i = slice_to_range(key[0], self.m)
+                    rng_j = slice_to_range(key[1], self.n)
+
+                    if isinstance(new_value, Iterable):
+                        # set array to row a
+                        assert len(rng_i) == new_value.shape[0]
+                        assert len(rng_j) == new_value.shape[1]
+                        for i, k in enumerate(rng_i):
+                            for j, l in enumerate(rng_j):
+                                self.data[k][l] = new_value[i, j]
+                    else:
+                        # set value to all the array
+                        for i in rng_i:
+                            for j in rng_j:
+                                self.data[i][j] = new_value
 
             elif isinstance(key[0], int) and isinstance(key[1], Iterable):
                 # (a, list_b) <- vector of row a and columns given by list_b
-                pass
+                rng_i = key[1]
+                if isinstance(new_value, Iterable):
+                    # set array to row a
+                    assert len(rng_i) == len(new_value)
+                    for i, k in enumerate(rng_i):
+                        self.data[key[0]][k] = new_value[i]
+                else:
+                    # set value to all the array
+                    for k in rng_i:
+                        self.data[key[0]][k] = new_value
 
             elif isinstance(key[0], Iterable) and isinstance(key[1], int):
                 # (list_a, b) <- vector of column b and rows given by list_a
-                pass
+                rng_i = key[0]
+                if isinstance(new_value, Iterable):
+                    # set array to row a
+                    assert len(rng_i) == len(new_value)
+                    for k, i in enumerate(rng_i):
+                        self.data[i][key[1]] = new_value[k]
+                else:
+                    # set value to all the array
+                    for i in rng_i:
+                        self.data[i][key[1]] = new_value
 
             elif isinstance(key[0], slice) and isinstance(key[1], Iterable):
                 # (:, list_b) <- Sub-matrix with the columns given by list_b
-                pass
+
+                rng_i = slice_to_range(key[0], self.m)
+                rng_j = key[1]
+
+                if isinstance(new_value, Iterable):
+                    # set array to row a
+                    assert len(rng_i) == new_value.shape[0]
+                    assert len(rng_j) == new_value.shape[1]
+                    for i, k in enumerate(rng_i):
+                        for j, l in enumerate(rng_j):
+                            self.data[k][l] = new_value[i, j]
+                else:
+                    # set value to all the array
+                    for i in rng_i:
+                        for j in rng_j:
+                            self.data[i][j] = new_value
 
             elif isinstance(key[0], Iterable) and isinstance(key[1], slice):
                 # (list_a, :) <- Sub-matrix with the rows given by list_a
-                pass
+                rng_i = key[0]
+                rng_j = slice_to_range(key[1], self.n)
+
+                if isinstance(new_value, Iterable):
+                    # set array to row a
+                    assert len(rng_i) == new_value.shape[0]
+                    assert len(rng_j) == new_value.shape[1]
+                    for i, k in enumerate(rng_i):
+                        for j, l in enumerate(rng_j):
+                            self.data[k][l] = new_value[i, j]
+                else:
+                    # set value to all the array
+                    for i in rng_i:
+                        for j in rng_j:
+                            self.data[i][j] = new_value
 
             elif isinstance(key[0], Iterable) and isinstance(key[1], Iterable):
                 # (list_a, list_b)  <- non continuous sub-matrix
-                pass
+                rng_i = key[0]
+                rng_j = key[1]
+
+                if isinstance(new_value, Iterable):
+                    # set array to row a
+                    assert len(rng_i) == new_value.shape[0]
+                    assert len(rng_j) == new_value.shape[1]
+                    for i, k in enumerate(rng_i):
+                        for j, l in enumerate(rng_j):
+                            self.data[k][l] = new_value[i, j]
+                else:
+                    # set value to all the array
+                    for i in rng_i:
+                        for j in rng_j:
+                            self.data[i][j] = new_value
 
         else:
             raise Exception('The indices must be a tuple :/')
@@ -200,8 +290,26 @@ class LilMat:
                 else:
                     row[j] = -val
 
-    def to_csc(self) -> "CscMat":
+    def __str__(self):
 
+        return dense_to_str(self.to_dense())
+
+    def to_dense(self):
+        """
+
+        :return:
+        """
+        mat = np.zeros((self.m, self.n))
+        for i, row in enumerate(self.data):
+            for j, val in row.items():
+                mat[i, j] = val
+        return mat
+
+    def to_csc(self) -> "CscMat":
+        """
+        Convert this matrix into a CSC matrix
+        :return: CscMat instance
+        """
         Ti = ialloc(self.nz)
         Tj = ialloc(self.nz)
         Tx = xalloc(self.nz)

@@ -26,7 +26,6 @@ CSparse3.py: a Concise Sparse matrix Python package
 @author: Santiago Peñate Vera
 """
 
-from sys import stdout
 import numpy as np  # this is for compatibility with numpy
 import numba as nb
 from numba.typed import List

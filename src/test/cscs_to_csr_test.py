@@ -1,5 +1,5 @@
 import numpy as np
-from CSparse.csc import CscMat
+from CSparse3.csc import CscMat
 
 
 def test_csc_to_csr():

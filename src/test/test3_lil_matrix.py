@@ -1,5 +1,5 @@
 import numpy as np
-from CSparse import LilMat
+from CSparse3 import LilMat
 
 
 

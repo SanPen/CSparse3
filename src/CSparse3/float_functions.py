@@ -28,7 +28,7 @@ CSparse3.py: a Concise Sparse matrix Python package
 
 import numpy as np  # this is for compatibility with numpy
 import numba as nb
-from CSparse.int_functions import ialloc, _copy_i
+from CSparse3.int_functions import ialloc, _copy_i
 
 
 @nb.njit("f8[:](i8)")

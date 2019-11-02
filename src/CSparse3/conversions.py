@@ -26,13 +26,10 @@ CSparse3.py: a Concise Sparse matrix Python package
 @author: Santiago Peñate Vera
 """
 
-from sys import stdout
 import numpy as np  # this is for compatibility with numpy
 import numba as nb
-from numba.typed import List
-from collections import Iterable
-from CSparse.int_functions import ialloc, csc_cumsum_i
-from CSparse.float_functions import csc_spalloc_f
+from CSparse3.int_functions import ialloc, csc_cumsum_i
+from CSparse3.float_functions import csc_spalloc_f
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8)")

@@ -27,8 +27,8 @@ CSparse3.py: a Concise Sparse matrix Python package
 """
 
 import numba as nb
-from CSparse.int_functions import ialloc
-from CSparse.float_functions import xalloc, csc_spalloc_f, csc_scatter_f
+from CSparse3.int_functions import ialloc
+from CSparse3.float_functions import xalloc, csc_spalloc_f, csc_scatter_f
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:], f8, f8)")

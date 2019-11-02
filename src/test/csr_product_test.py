@@ -1,7 +1,7 @@
 import numpy as np
 from time import time
 from scipy.sparse import csr_matrix, random, diags
-from CSparse.multiply import csr_multiply_ff
+from CSparse3.multiply import csr_multiply_ff
 
 
 np.set_printoptions(linewidth=100000)

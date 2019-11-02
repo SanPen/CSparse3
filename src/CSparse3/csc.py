@@ -26,18 +26,16 @@ CSparse3.py: a Concise Sparse matrix Python package
 @author: Santiago Peñate Vera
 """
 
-from sys import stdout
 import numpy as np  # this is for compatibility with numpy
 import numba as nb
-from numba.typed import List
-from collections import Iterable
-from CSparse.int_functions import ialloc, csc_cumsum_i
-from CSparse.float_functions import xalloc, csc_spalloc_f
-from CSparse.add import csc_add_ff
-from CSparse.multiply import csc_multiply_ff, csc_mat_vec_ff
-from CSparse.graph import find_islands
-from CSparse.conversions import csc_to_csr
-from CSparse.utils import csc_diagonal, csc_diagonal_from_array, stack_4_by_4_ff
+from collections.abc import Iterable
+from CSparse3.int_functions import ialloc, csc_cumsum_i
+from CSparse3.float_functions import xalloc, csc_spalloc_f
+from CSparse3.add import csc_add_ff
+from CSparse3.multiply import csc_multiply_ff, csc_mat_vec_ff
+from CSparse3.graph import find_islands
+from CSparse3.conversions import csc_to_csr
+from CSparse3.utils import csc_diagonal, csc_diagonal_from_array, stack_4_by_4_ff, dense_to_str
 
 
 class CscMat:
@@ -181,23 +179,7 @@ class CscMat:
         To string (dense)
         :return: string
         """
-        a = self.todense()
-        val = "Matrix[" + ("%d" % self.m) + "][" + ("%d" % self.n) + "]\n"
-        rows = self.m
-        cols = self.n
-        for i in range(0, rows):
-            for j in range(0, cols):
-                x = a[i, j]
-                if x is not None:
-                    if x == 0:
-                        val += '0' + ' ' * 10
-                    else:
-                        val += "%6.8f " % x
-                else:
-                    val += ""
-            val += '\n'
-
-        return val
+        return dense_to_str(self.todense())
 
     def __add__(self, other) -> "CscMat":
         """

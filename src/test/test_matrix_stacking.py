@@ -1,7 +1,7 @@
 from time import time
 from scipy.sparse import csc_matrix, random, hstack, vstack
 
-from CSparse.csc import pack_4_by_4, Diag, scipy_to_mat
+from CSparse3.csc import pack_4_by_4, Diag, scipy_to_mat
 
 
 def test_stack_4():
