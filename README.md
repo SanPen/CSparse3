@@ -1,6 +1,9 @@
 CSparse3
 ========
 
+[![Documentation Status](https://readthedocs.org/projects/csparse3/badge/?version=latest)](https://csparse3.readthedocs.io/en/latest/?badge=latest)
+
+
 This library packages CSC sparse matrix utilities compiled with numba to native code.
 
 Many functions of the library come from the CSparse project, however this project does not
