@@ -155,9 +155,9 @@ class CscMat:
                 B = CscMat()
                 n, B.indptr, B.indices, B.data = csc_sub_matrix(Am=self.m,
                                                                 Anz=self.nz,
-                                                                Aindptr=self.indptr,
-                                                                Aindices=self.indices,
-                                                                Adata=self.data,
+                                                                Ap=self.indptr,
+                                                                Ai=self.indices,
+                                                                Ax=self.data,
                                                                 rows=key[0],
                                                                 cols=key[1])
                 B.nz = n
@@ -236,14 +236,14 @@ class CscMat:
 
             C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = csc_multiply_ff(Am=self.m,
                                                                              An=self.n,
-                                                                             Aindptr=self.indptr,
-                                                                             Aindices=self.indices,
-                                                                             Adata=self.data,
+                                                                             Ap=self.indptr,
+                                                                             Ai=self.indices,
+                                                                             Ax=self.data,
                                                                              Bm=other.m,
                                                                              Bn=other.n,
-                                                                             Bindptr=other.indptr,
-                                                                             Bindices=other.indices,
-                                                                             Bdata=other.data)
+                                                                             Bp=other.indptr,
+                                                                             Bi=other.indices,
+                                                                             Bx=other.data)
             return C
 
         elif isinstance(other, np.ndarray):
@@ -330,9 +330,9 @@ class CscMat:
         C = CscMat()
         C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = csc_multiply_ff(Am=self.m,
                                                                          An=self.n,
-                                                                         Aindptr=self.indptr,
-                                                                         Aindices=self.indices,
-                                                                         Adata=self.data,
+                                                                         Ap=self.indptr,
+                                                                         Ai=self.indices,
+                                                                         Ax=self.data,
                                                                          Bm=o.m,
                                                                          Bn=o.n,
                                                                          Bindptr=o.indptr,
@@ -420,7 +420,7 @@ def csc_transpose(m, n, Ap, Ai, Ax):
 
 
 @nb.njit("Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:])")
-def csc_sub_matrix(Am, Anz, Aindptr, Aindices, Adata, rows, cols):
+def csc_sub_matrix(Am, Anz, Ap, Ai, Ax, rows, cols):
     """
     Get SCS arbitrary sub-matrix
     :param A: CSC matrix
@@ -429,44 +429,35 @@ def csc_sub_matrix(Am, Anz, Aindptr, Aindices, Adata, rows, cols):
     :return: CSC sub-matrix (n, new_col_ptr, new_row_ind, new_val)
     """
     n_rows = len(rows)
-    n_cols = len(cols)
-    found = False
     n = 0
     p = 0
-    new_val = xalloc(Anz)
-    new_row_ind = ialloc(Anz)
-    new_col_ptr = ialloc(Am + 1)
+    Bx = xalloc(Anz)
+    Bi = ialloc(Anz)
+    Bp = ialloc(Am + 1)
 
-    new_col_ptr[p] = 0
+    Bp[p] = 0
 
-    for j in cols:
-
-        for k in range(Aindptr[j], Aindptr[j + 1]):
+    for j in cols:  # for each column selected ...
+        for k in range(Ap[j], Ap[j + 1]):  # for each row of the column j of A...
             # search row_ind[k] in rows
             found = False
             found_idx = 0
             while not found and found_idx < n_rows:
-                if Aindices[k] == rows[found_idx]:
+                if Ai[k] == rows[found_idx]:
                     found = True
                 found_idx += 1
 
             # store the values if the row was found in rows
             if found:  # if the row index is in the designated rows...
-                new_val[n] = Adata[k]  # store the value
-                new_row_ind[n] = found_idx - 1  # store the index where the original index was found inside "rows"
+                Bx[n] = Ax[k]  # store the value
+                Bi[n] = found_idx - 1  # store the index where the original index was found inside "rows"
                 n += 1
         p += 1
-        new_col_ptr[p] = n
+        Bp[p] = n
 
-    new_col_ptr[p] = n
+    Bp[p] = n
 
-    # B = CscMat()
-    # B.data = new_val
-    # B.indices = new_row_ind
-    # B.indptr = new_col_ptr
-    # B.nz = n
-    # B.nzmax = n
-    return n, new_col_ptr, new_row_ind, new_val
+    return n, Bp, Bi, Bx
 
 
 @nb.njit("f8[:, :](i8, i8, i4[:], i4[:], f8[:])")

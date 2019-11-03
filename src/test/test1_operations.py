@@ -9,7 +9,7 @@ np.set_printoptions(linewidth=100000)
 
 def test1(check=True):
     np.random.seed(0)
-    k = 500
+    k = 5000
     m, n = k, k
 
     A = csc_matrix(random(m, n, density=0.01)) + diags(np.ones(n))
@@ -26,7 +26,7 @@ def test1(check=True):
     G = C * x
     H = A * 5
     I = A.T
-    print('Scipy\t', time() - t)
+    print('Scipy\t', time() - t, 's')
 
     # ---------------------------------------------------------------------
     # CSparse3
@@ -41,7 +41,7 @@ def test1(check=True):
     G2 = C2 * x
     H2 = A2 * 5
     I2 = A2.t()
-    print('CSparse\t', time() - t)
+    print('CSparse\t', time() - t, 's')
 
     # ---------------------------------------------------------------------
     # check

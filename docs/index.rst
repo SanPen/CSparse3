@@ -10,6 +10,8 @@ Welcome to CSparse3's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   connectivity_matrix.rst
+
    api/modules.rst
 
 Indices and tables

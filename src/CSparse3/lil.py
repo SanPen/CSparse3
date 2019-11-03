@@ -305,11 +305,20 @@ class LilMat:
                 mat[i, j] = val
         return mat
 
+    def get_nz(self):
+        nz = 0
+        for i, row in enumerate(self.data):
+            for j, val in row.items():
+                nz += 1
+        return nz
+
     def to_csc(self) -> "CscMat":
         """
         Convert this matrix into a CSC matrix
         :return: CscMat instance
         """
+        self.nz = self.get_nz()
+
         Ti = ialloc(self.nz)
         Tj = ialloc(self.nz)
         Tx = xalloc(self.nz)

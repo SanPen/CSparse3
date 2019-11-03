@@ -63,10 +63,10 @@ def _copy_f(src, dest, length):
 def csc_sprealloc_f(An, Aindptr, Aindices, Adata, nzmax):
     """
     Change the max # of entries a sparse matrix can hold.
-    :param An:
-    :param Aindptr:
-    :param Aindices:
-    :param Adata:
+    :param An: number of columns
+    :param Aindptr: csc column pointers
+    :param Aindices: csc row indices
+    :param Adata: csc data
     :param nzmax:new maximum number of entries
     :return: indices, data, nzmax
     """
@@ -76,13 +76,11 @@ def csc_sprealloc_f(An, Aindptr, Aindices, Adata, nzmax):
 
     length = min(nzmax, len(Aindices))
     Ainew = np.empty(nzmax, dtype=nb.int32)  # ialloc(nzmax)
-    # _copy_i(Aindices, Ainew, length)
     for i in range(length):
         Ainew[i] = Aindices[i]
 
     length = min(nzmax, len(Adata))
     Axnew = np.empty(nzmax, dtype=nb.float64)  # xalloc(nzmax)
-    # _copy_f(Adata, Axnew, length)
     for i in range(length):
         Axnew[i] = Adata[i]
 

@@ -108,31 +108,30 @@ def csc_multiply_ff0(Am, An, Aindptr, Aindices, Adata,
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
          parallel=False, nogil=True, fastmath=False, cache=True)  # fastmath=True breaks the code
-def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
-                    Bm, Bn, Bindptr, Bindices, Bdata):
+def csc_multiply_ff(Am, An, Ap, Ai, Ax,
+                    Bm, Bn, Bp, Bi, Bx):
     """
     Sparse matrix multiplication, C = A*B where A and B are CSC sparse matrices
     :param Am: number of rows in A
     :param An: number of columns in A
-    :param Aindptr: column pointers of A
-    :param Aindices: indices of A
-    :param Adata: data of A
+    :param Ap: column pointers of A
+    :param Ai: indices of A
+    :param Ax: data of A
     :param Bm: number of rows in B
     :param Bn: number of columns in B
-    :param Bindptr: column pointers of B
-    :param Bindices: indices of B
-    :param Bdata: data of B
+    :param Bp: column pointers of B
+    :param Bi: indices of B
+    :param Bx: data of B
     :return: Cm, Cn, Cp, Ci, Cx, Cnzmax
     """
-
+    assert An == Bm
     nz = 0
     m = Am
-    anz = Aindptr[An]
-    bnz = Bindptr[Bn]
-    n, Bp, Bi, Bx = Bn, Bindptr, Bindices, Bdata
+    anz = Ap[An]
+    bnz = Bp[Bn]
+    n = Bn
 
     t = nb
-
     w = np.zeros(n, dtype=t.int32)  # ialloc(m)  # get workspace
     x = np.empty(n, dtype=t.float64)  # xalloc(m)  # get workspace
 
@@ -156,15 +155,15 @@ def csc_multiply_ff(Am, An, Aindptr, Aindices, Adata,
 
         # perform the multiplication
         for pb in range(Bp[j], Bp[j + 1]):
-            for pa in range(Aindptr[Bi[pb]], Aindptr[Bi[pb] + 1]):
-                ia = Aindices[pa]
+            for pa in range(Ap[Bi[pb]], Ap[Bi[pb] + 1]):
+                ia = Ai[pa]
                 if w[ia] < j + 1:
                     w[ia] = j + 1
                     Ci[nz] = ia
                     nz += 1
-                    x[ia] = Bx[pb] * Adata[pa]
+                    x[ia] = Bx[pb] * Ax[pa]
                 else:
-                    x[ia] += Bx[pb] * Adata[pa]
+                    x[ia] += Bx[pb] * Ax[pa]
 
         for pc in range(Cp[j], nz):
             Cx[pc] = x[Ci[pc]]
@@ -229,6 +228,9 @@ def csc_mat_vec_ff(m, n, Ap, Ai, Ax, x):
     :param x: vector x (n)
     :return: vector y (m)
     """
+
+    assert n == x.shape[0]
+
     y = np.zeros(m, dtype=nb.float64)
     for j in range(n):
         for p in range(Ap[j], Ap[j + 1]):
