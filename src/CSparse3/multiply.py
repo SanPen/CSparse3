@@ -29,81 +29,6 @@ CSparse3.py: a Concise Sparse matrix Python package
 import numpy as np
 import numba as nb
 import math
-from CSparse3.float_functions import csc_sprealloc_f, csc_scatter_ff
-
-
-@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
-         parallel=False, nogil=True, fastmath=True, cache=True)
-def csc_multiply_ff0(Am, An, Aindptr, Aindices, Adata,
-                    Bm, Bn, Bindptr, Bindices, Bdata):
-    """
-    Sparse matrix multiplication, C = A*B where A and B are CSC sparse matrices
-    :param Am: number of rows in A
-    :param An: number of columns in A
-    :param Aindptr: column pointers of A
-    :param Aindices: indices of A
-    :param Adata: data of A
-    :param Bm: number of rows in B
-    :param Bn: number of columns in B
-    :param Bindptr: column pointers of B
-    :param Bindices: indices of B
-    :param Bdata: data of B
-    :return: Cm, Cn, Cp, Ci, Cx, Cnzmax
-    """
-
-    nz = 0
-    m = Am
-    anz = Aindptr[An]
-    bnz = Bindptr[Bn]
-    n, Bp, Bi, Bx = Bn, Bindptr, Bindices, Bdata
-
-    w = np.zeros(n, dtype=nb.int32)  # ialloc(m)  # get workspace
-    x = np.empty(n, dtype=nb.float64)  # xalloc(m)  # get workspace
-
-    # allocate result
-    Cm = m
-    Cn = n
-    Cnzmax = int(math.sqrt(m)) * anz + bnz  # the trick here is to allocate just enough memory to avoid reallocating
-    Cp = np.empty(n + 1, dtype=nb.int32)
-    Ci = np.empty(Cnzmax, dtype=nb.int32)
-    Cx = np.empty(Cnzmax, dtype=nb.float64)
-
-    for j in range(n):
-
-        # claim more space
-        if nz + m > Cnzmax:
-            Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
-            print('Re-Allocating')
-
-        # column j of C starts here
-        Cp[j] = nz
-
-        for p in range(Bp[j], Bp[j + 1]):
-            nz = csc_scatter_ff(Aindptr=Aindptr, Aindices=Aindices, Adata=Adata,
-                                j=Bi[p], beta=Bx[p], w=w, x=x, mark=j + 1, Ci=Ci, nz=nz)
-            # ja = Bi[p]
-            # mark = j + 1
-            # beta = Bx[p]
-            # nza = nz
-            # for pa in range(Aindptr[ja], Aindptr[ja + 1]):
-            #     ia = Aindices[pa]
-            #     if w[ia] < mark:
-            #         w[ia] = mark
-            #         Ci[nz] = ia
-            #         nz += 1
-            #         x[ia] = beta * Adata[pa]
-            #     else:
-            #         x[ia] += beta * Adata[pa]
-            # nz = nza
-
-        for p in range(Cp[j], nz):
-            Cx[p] = x[Ci[p]]
-
-    Cp[n] = nz  # finalize the last column of C
-
-    Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 0)  # remove extra space from C
-
-    return Cm, Cn, Cp, Ci, Cx, Cnzmax
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
@@ -147,8 +72,23 @@ def csc_multiply_ff(Am, An, Ap, Ai, Ax,
 
         # claim more space
         if nz + m > Cnzmax:
-            Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
+            # Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
             print('Re-Allocating')
+            Cnzmax = 2 * Cnzmax + m
+            if Cnzmax <= 0:
+                Cnzmax = Cp[An]
+
+            length = min(Cnzmax, len(Ci))
+            Cinew = np.empty(Cnzmax, dtype=nb.int32)
+            for i in range(length):
+                Cinew[i] = Ci[i]
+            Ci = Cinew
+
+            length = min(Cnzmax, len(Cx))
+            Cxnew = np.empty(Cnzmax, dtype=nb.float64)
+            for i in range(length):
+                Cxnew[i] = Cx[i]
+            Cx = Cxnew
 
         # column j of C starts here
         Cp[j] = nz
@@ -170,13 +110,17 @@ def csc_multiply_ff(Am, An, Ap, Ai, Ax,
 
     Cp[n] = nz  # finalize the last column of C
 
-    Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 0)  # remove extra space from C
+    # cut the arrays to their nominal size nnz
+    # Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 0)
+    Cnzmax = Cp[Cn]
+    Cinew = Ci[:Cnzmax]
+    Cxnew = Cx[:Cnzmax]
 
-    return Cm, Cn, Cp, Ci, Cx, Cnzmax
+    return Cm, Cn, Cp, Cinew, Cxnew, Cnzmax
 
 
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
-         parallel=False, nogil=True, fastmath=True)
+         parallel=False, nogil=True, fastmath=False)
 def csr_multiply_ff(p, q, IA, JA, A, Bm, r, IB, JB, B):
 
     t = np

@@ -75,12 +75,12 @@ def csc_sprealloc_f(An, Aindptr, Aindices, Adata, nzmax):
         nzmax = Aindptr[An]
 
     length = min(nzmax, len(Aindices))
-    Ainew = np.empty(nzmax, dtype=nb.int32)  # ialloc(nzmax)
+    Ainew = np.empty(nzmax, dtype=nb.int32)
     for i in range(length):
         Ainew[i] = Aindices[i]
 
     length = min(nzmax, len(Adata))
-    Axnew = np.empty(nzmax, dtype=nb.float64)  # xalloc(nzmax)
+    Axnew = np.empty(nzmax, dtype=nb.float64)
     for i in range(length):
         Axnew[i] = Adata[i]
 
