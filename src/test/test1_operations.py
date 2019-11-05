@@ -9,11 +9,11 @@ np.set_printoptions(linewidth=100000)
 
 def test1(check=True):
     np.random.seed(0)
-    k = 10000
+    k = 1000
     m, n = k, k
 
-    A = csc_matrix(random(m, n, density=0.01)) + diags(np.ones(n))
-    B = csc_matrix(random(m, n, density=0.01)) + diags(np.ones(n))
+    A = csc_matrix(random(m, n, density=0.1)) + diags(np.ones(n))
+    B = csc_matrix(random(m, n, density=0.1)) + diags(np.ones(n))
     x = np.random.random(m)
 
     # ---------------------------------------------------------------------
