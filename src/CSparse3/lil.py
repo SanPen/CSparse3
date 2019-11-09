@@ -27,7 +27,7 @@ CSparse3.py: a Concise Sparse matrix Python package
 """
 
 from collections.abc import Iterable
-from CSparse3.float_numba import *
+from CSparse3.csc_numba import *
 from CSparse3.csc import CscMat
 from CSparse3.utils import slice_to_range, dense_to_str
 

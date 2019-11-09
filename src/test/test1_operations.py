@@ -3,7 +3,9 @@ from time import time
 from scipy.sparse import csc_matrix, random, diags
 
 from CSparse3.csc import scipy_to_mat
+from CSparse3 import __config__
 
+__config__.NATIVE = False
 np.set_printoptions(linewidth=100000)
 
 

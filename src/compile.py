@@ -1,5 +1,11 @@
-from CSparse3.float_numba import cc
+from CSparse3 import __config__
+from CSparse3 import csc_numba
+
+
+def compile_all():
+    __config__.NATIVE = False
+    csc_numba.compile_code()
+
 
 if __name__ == '__main__':
-    cc.output_dir = 'CSparse3'
-    cc.compile()
+    compile_all()

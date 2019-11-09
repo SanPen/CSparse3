@@ -25,10 +25,20 @@ CSparse3.py: a Concise Sparse matrix Python package
 @author: Richard Lincoln
 @author: Santiago Peñate Vera
 """
+
 import numpy as np
 from collections.abc import Iterable
-from CSparse3.float_numba import *
 from CSparse3.utils import dense_to_str
+from CSparse3 import __config__
+
+if __config__.NATIVE:
+    try:
+        from CSparse3.csc_native import *
+        print('Using native code')
+    except:
+        from CSparse3.csc_numba import *
+else:
+    from CSparse3.csc_numba import *
 
 
 class CscMat:
@@ -189,10 +199,12 @@ class CscMat:
                                                                other.indices, other.data,
                                                                1.0, 1.0)
         elif isinstance(other, float) or isinstance(other, int):
-            C = self.copy()
-            C.data += other
+            # C = self.copy()
+            # C.data += other
+            raise NotImplementedError('Adding a nonzero scalar to a sparse matrix would make it a dense matrix.')
         else:
-            raise Exception('Type not supported')
+            raise NotImplementedError('Type not supported')
+
         return C
 
     def __sub__(self, o) -> "CscMat":
@@ -210,10 +222,11 @@ class CscMat:
                                                                o.indices, o.data,
                                                                1.0, -1.0)
         elif isinstance(o, float) or isinstance(o, int):
-            C = self.copy()
-            C.data += o
+            # C = self.copy()
+            # C.data += o
+            raise NotImplementedError('Adding a nonzero scalar to a sparse matrix would make it a dense matrix.')
         else:
-            raise Exception('Type not supported')
+            raise NotImplementedError('Type not supported')
 
         return C
 
