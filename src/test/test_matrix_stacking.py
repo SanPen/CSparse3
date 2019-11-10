@@ -9,14 +9,14 @@ def test_stack_4():
 
     :return:
     """
-    k = 100
-    l = 400
-    m = 600
+    k = 1000
+    l = 4 * k
+    m = 6 * k
 
-    A = csc_matrix(random(k, l, density=0.2))
-    B = csc_matrix(random(k, k, density=0.2))
-    C = csc_matrix(random(m, l, density=0.2))
-    D = csc_matrix(random(m, k, density=0.2))
+    A = csc_matrix(random(k, l, density=0.1))
+    B = csc_matrix(random(k, k, density=0.1))
+    C = csc_matrix(random(m, l, density=0.1))
+    D = csc_matrix(random(m, k, density=0.1))
     t = time()
     E = hstack((vstack((A, C)), vstack((B, D))))
     print('Scipy\t', time() - t)

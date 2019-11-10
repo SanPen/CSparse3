@@ -3,6 +3,7 @@ import numba as nb
 from time import time
 from scipy.sparse import csr_matrix, csc_matrix
 from scipy.sparse import csc_matrix, random, diags
+import scipy.sparse.sparsetools as sptools
 
 
 @nb.njit("void(i8, i8, i4[:], i4[:], i4[:], i4[:], i4[:])")
@@ -169,6 +170,32 @@ def csc_dot(A: csc_matrix, B: csc_matrix):
     return C
 
 
+def csc_dot2(A: csc_matrix, B: csc_matrix):
+    """
+
+    :param A:
+    :param B:
+    :return:
+    """
+    Cp = np.empty(A.shape[0] + 1, dtype=np.int32)
+
+    sptools.csc_matmat_pass1(A.shape[0], B.shape[1],
+                             A.indptr, A.indices,
+                             B.indptr, B.indices, Cp)
+    nnz = Cp[-1]
+    Ci = np.empty(nnz, dtype=np.int32)
+    Cx = np.empty(nnz, dtype=np.float64)
+
+    sptools.csc_matmat_pass2(A.shape[0], B.shape[1],
+                             A.indptr, A.indices, A.data,
+                             B.indptr, B.indices, B.data,
+                             Cp, Ci, Cx)
+
+    N, M = A.shape[0], B.shape[1]
+    C = csc_matrix((Cx, Ci, Cp), shape=(N, M))
+    return C
+
+
 if __name__ == '__main__':
 
     np.random.seed(0)
@@ -191,7 +218,7 @@ if __name__ == '__main__':
     # CSparse3
     # ---------------------------------------------------------------------
     t = time()
-    C2 = csc_dot(A, B)
+    C2 = csc_dot2(A, B)
     print('This\t', time() - t, 's')
 
     # ---------------------------------------------------------------------

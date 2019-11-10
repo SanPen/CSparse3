@@ -30,7 +30,7 @@ import numpy as np
 from collections.abc import Iterable
 from CSparse3.utils import dense_to_str
 from CSparse3 import __config__
-
+import scipy.sparse.sparsetools as sptools
 if __config__.NATIVE:
     try:
         from CSparse3.csc_native import *
@@ -45,7 +45,7 @@ class CscMat:
     """
     Matrix in compressed-column or triplet form.
     """
-    def __init__(self, m=0, n=0, nz_max=0):
+    def __init__(self, m=0, n=0, nz_max=0, indptr=None, indices=None, data=None):
         """
         CSC sparse matrix
 
@@ -91,24 +91,39 @@ class CscMat:
         @param nz_max: maximum number of entries
         """
 
-        # maximum number of entries
-        self.nzmax = max(nz_max, 1)
-
         # number of rows
         self.m = m
 
         # number of columns
         self.n = n
 
-        # column pointers (size n+1) or col indices (size n+1)
-        # they indicate from which to which index does each column take
-        self.indptr = ialloc(n + 1)
+        if indptr is None:
+            # maximum number of entries
+            self.nzmax = max(nz_max, 1)
 
-        # row indices, size nzmax
-        self.indices = ialloc(nz_max)
+            # column pointers (size n+1) or col indices (size n+1)
+            # they indicate from which to which index does each column take
+            self.indptr = ialloc(n + 1)
 
-        # numerical values, size nzmax
-        self.data = xalloc(nz_max)
+            # row indices, size nzmax
+            self.indices = ialloc(nz_max)
+
+            # numerical values, size nzmax
+            self.data = xalloc(nz_max)
+
+        else:
+            # maximum number of entries
+            self.nzmax = len(indices)
+
+            # column pointers (size n+1) or col indices (size n+1)
+            # they indicate from which to which index does each column take
+            self.indptr = indptr
+
+            # row indices, size nzmax
+            self.indices = indices
+
+            # numerical values, size nzmax
+            self.data = data
 
         # -1 for compressed-col
         self.nz = -1
@@ -238,19 +253,34 @@ class CscMat:
         """
         if isinstance(other, CscMat):
             # mat-mat multiplication
-            C = CscMat()
 
-            C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = csc_multiply_ff(self.m,
-                                                                             self.n,
-                                                                             self.indptr,
-                                                                             self.indices,
-                                                                             self.data,
-                                                                             other.m,
-                                                                             other.n,
-                                                                             other.indptr,
-                                                                             other.indices,
-                                                                             other.data)
-            return C
+
+            # C.m, C.n, C.indptr, C.indices, C.data, C.nzmax = csc_multiply_ff(self.m,
+            #                                                                  self.n,
+            #                                                                  self.indptr,
+            #                                                                  self.indices,
+            #                                                                  self.data,
+            #                                                                  other.m,
+            #                                                                  other.n,
+            #                                                                  other.indptr,
+            #                                                                  other.indices,
+            #                                                                  other.data)
+
+            Cp = np.empty(self.n + 1, dtype=np.int32)
+
+            sptools.csc_matmat_pass1(self.n, other.m,
+                                     self.indptr, self.indices,
+                                     other.indptr, other.indices, Cp)
+            nnz = Cp[-1]
+            Ci = np.empty(nnz, dtype=np.int32)
+            Cx = np.empty(nnz, dtype=np.float64)
+
+            sptools.csc_matmat_pass2(self.n, other.m,
+                                     self.indptr, self.indices, self.data,
+                                     other.indptr, other.indices, other.data,
+                                     Cp, Ci, Cx)
+
+            return CscMat(n=self.m, m=other.m, indptr=Cp, indices=Ci, data=Cx)
 
         elif isinstance(other, np.ndarray):
             # mat-vec multiplication -> vector

@@ -11,7 +11,7 @@ np.set_printoptions(linewidth=100000)
 
 def test1(check=True):
     np.random.seed(0)
-    k = 1000
+    k = 4000
     m, n = k, k
 
     A = csc_matrix(random(m, n, density=0.1)) + diags(np.ones(n))

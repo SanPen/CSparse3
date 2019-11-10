@@ -239,94 +239,6 @@ def csc_add_ff(Am, An, Aindptr, Aindices, Adata,
 @cc.export("csc_multiply_ff", "Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])")
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
          parallel=False, nogil=True, fastmath=False, cache=True)  # fastmath=True breaks the code
-def csc_multiply_ff0(Am, An, Ap, Ai, Ax,
-                    Bm, Bn, Bp, Bi, Bx):
-    """
-    Sparse matrix multiplication, C = A*B where A and B are CSC sparse matrices
-    :param Am: number of rows in A
-    :param An: number of columns in A
-    :param Ap: column pointers of A
-    :param Ai: indices of A
-    :param Ax: data of A
-    :param Bm: number of rows in B
-    :param Bn: number of columns in B
-    :param Bp: column pointers of B
-    :param Bi: indices of B
-    :param Bx: data of B
-    :return: Cm, Cn, Cp, Ci, Cx, Cnzmax
-    """
-    assert An == Bm
-    nz = 0
-    anz = Ap[An]
-    bnz = Bp[Bn]
-    Cm = Am
-    Cn = Bn
-
-    t = nb
-    w = np.zeros(Cn, dtype=t.int32)  # ialloc(m)  # get workspace
-    x = np.empty(Cn, dtype=t.float64)  # xalloc(m)  # get workspace
-
-    # allocate result
-
-    Cnzmax = int(math.sqrt(Cm)) * anz + bnz  # the trick here is to allocate just enough memory to avoid reallocating
-    Cp = np.empty(Cn + 1, dtype=t.int32)
-    Ci = np.empty(Cnzmax, dtype=t.int32)
-    Cx = np.empty(Cnzmax, dtype=t.float64)
-
-    for j in range(Cn):
-
-        # claim more space
-        if nz + Cm > Cnzmax:
-            # Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 2 * Cnzmax + m)
-            print('Re-Allocating')
-            Cnzmax = 2 * Cnzmax + Cm
-            if Cnzmax <= 0:
-                Cnzmax = Cp[An]
-
-            length = min(Cnzmax, len(Ci))
-            Cinew = np.empty(Cnzmax, dtype=nb.int32)
-            for i in range(length):
-                Cinew[i] = Ci[i]
-            Ci = Cinew
-
-            length = min(Cnzmax, len(Cx))
-            Cxnew = np.empty(Cnzmax, dtype=nb.float64)
-            for i in range(length):
-                Cxnew[i] = Cx[i]
-            Cx = Cxnew
-
-        # column j of C starts here
-        Cp[j] = nz
-
-        # perform the multiplication
-        for pb in range(Bp[j], Bp[j + 1]):
-            for pa in range(Ap[Bi[pb]], Ap[Bi[pb] + 1]):
-                ia = Ai[pa]
-                if w[ia] < j + 1:
-                    w[ia] = j + 1
-                    Ci[nz] = ia
-                    nz += 1
-                    x[ia] = Bx[pb] * Ax[pa]
-                else:
-                    x[ia] += Bx[pb] * Ax[pa]
-
-        for pc in range(Cp[j], nz):
-            Cx[pc] = x[Ci[pc]]
-
-    Cp[Cn] = nz  # finalize the last column of C
-
-    # cut the arrays to their nominal size nnz
-    # Ci, Cx, Cnzmax = csc_sprealloc_f(Cn, Cp, Ci, Cx, 0)
-    Cnzmax = Cp[Cn]
-    Cinew = Ci[:Cnzmax]
-    Cxnew = Cx[:Cnzmax]
-
-    return Cm, Cn, Cp, Cinew, Cxnew, Cnzmax
-
-
-@cc.export("csc_multiply_ff", "Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])")
-@nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
-         parallel=False, nogil=True, fastmath=False, cache=True)  # fastmath=True breaks the code
 def csc_multiply_ff(Am, An, Ap, Ai, Ax,
                     Bm, Bn, Bp, Bi, Bx):
     """
@@ -661,7 +573,7 @@ def csc_diagonal_from_array(m, array):
          "i8, i8, i4[:], i4[:], f8[:], "
          "i8, i8, i4[:], i4[:], f8[:], "
          "i8, i8, i4[:], i4[:], f8[:])",
-         parallel=False, nogil=True, fastmath=True)
+         parallel=False, nogil=True, fastmath=True, cache=True)
 def csc_stack_4_by_4_ff(am, an, Ai, Ap, Ax,
                         bm, bn, Bi, Bp, Bx,
                         cm, cn, Ci, Cp, Cx,
