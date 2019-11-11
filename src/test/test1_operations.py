@@ -5,18 +5,19 @@ from scipy.sparse import csc_matrix, random, diags
 from CSparse3.csc import scipy_to_mat
 from CSparse3 import __config__
 
-__config__.NATIVE = False
+__config__.NATIVE = True
 np.set_printoptions(linewidth=100000)
 
 
 def test1(check=True):
     np.random.seed(0)
-    k = 4000
+    k = 100
     m, n = k, k
 
-    A = csc_matrix(random(m, n, density=0.1)) + diags(np.ones(n))
-    B = csc_matrix(random(m, n, density=0.1)) + diags(np.ones(n))
+    A = csc_matrix(random(m, n, density=0.01)) + diags(np.ones(n))
+    B = csc_matrix(random(m, n, density=0.01)) + diags(np.ones(n))
     x = np.random.random(m)
+    xx = np.random.random((m, 5))
 
     # ---------------------------------------------------------------------
     # Scipy
@@ -28,6 +29,7 @@ def test1(check=True):
     G = C * x
     H = A * 5
     I = A.T
+    J = A * xx
     print('Scipy\t', time() - t, 's')
 
     # ---------------------------------------------------------------------
@@ -43,6 +45,7 @@ def test1(check=True):
     G2 = C2 * x
     H2 = A2 * 5
     I2 = A2.t()
+    J2 = A2 * xx
     print('CSparse\t', time() - t, 's')
 
     # ---------------------------------------------------------------------
@@ -53,6 +56,7 @@ def test1(check=True):
         pass_subt = (D.todense() == D2.todense()).all()
         pass_mult = (F.todense() == F2.todense()).all()
         pass_mat_vec = (G == G2).all()
+        pass_mat_vec_multiple = (J == J2).all()
         pass_mult_scalar = (H.todense() == H2.todense()).all()
         pass_transpose = (I.todense() == I2.todense()).all()
 
@@ -63,6 +67,7 @@ def test1(check=True):
         assert pass_subt
         assert pass_mult
         assert pass_mat_vec
+        assert pass_mat_vec_multiple
         assert pass_mult_scalar
         assert pass_transpose
 
@@ -70,6 +75,7 @@ def test1(check=True):
         print('-\t\t', pass_subt)
         print('mat mat\t', pass_mult)
         print('mat vec\t', pass_mat_vec)
+        print('mat vec multiple\t', pass_mat_vec_multiple)
         print('scalar *', pass_mult_scalar)
         print('Transpose', pass_transpose)
 

@@ -5,7 +5,9 @@ import numpy as np
 # June 2nd 2016 version.
 
 # Load the share library
-mkl = cdll.LoadLibrary("libmkl_rt.so")
+# mkl = cdll.LoadLibrary("libmkl_rt.so")
+# mkl = cdll.LoadLibrary(r"C:\Users\PENVERSA\Apps\ReePy37\Library\bin\mkl_rt.dll")
+mkl = cdll.LoadLibrary(r"mkl_rt.dll")
 
 
 def get_csr_handle(A, clear=False):

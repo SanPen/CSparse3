@@ -32,27 +32,17 @@ from numba.pycc import CC
 from numba.typed import List
 import math
 
-cc = CC(extension_name='csc_native', source_module='CSparse3')
-cc.output_dir = 'CSParse3'
 
-
-def compile_code():
-    cc.compile()
-
-
-@cc.export('ialloc', 'i4[:](i8)')
 @nb.njit("i4[:](i8)")
 def ialloc(n):
     return np.zeros(n, dtype=nb.int32)
 
 
-@cc.export('xalloc', 'f8[:](i8)')
 @nb.njit("f8[:](i8)")
 def xalloc(n):
     return np.zeros(n, dtype=nb.float64)
 
 
-@cc.export('csc_spalloc_f', "Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i8)")
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i8)")
 def csc_spalloc_f(m, n, nzmax):
     """
@@ -70,21 +60,18 @@ def csc_spalloc_f(m, n, nzmax):
     return m, n, Aindptr, Aindices, Adata, Anzmax
 
 
-@cc.export('_copy_f', "(f8[:], f8[:], i8)")
 @nb.njit("(f8[:], f8[:], i8)")
 def _copy_f(src, dest, length):
     for i in range(length):
         dest[i] = src[i]
 
 
-@cc.export('_copy_i', "(i4[:], i4[:], i8)")
 @nb.njit("(i4[:], i4[:], i8)")
 def _copy_i(src, dest, length):
     for i in range(length):
         dest[i] = src[i]
 
 
-@cc.export('csc_cumsum_i', "i8(i4[:], i4[:], i8)")
 @nb.njit("i8(i4[:], i4[:], i8)")
 def csc_cumsum_i(p, c, n):
     """
@@ -107,7 +94,6 @@ def csc_cumsum_i(p, c, n):
     return int(nz2)               # return sum (c [0..n-1])
 
 
-@cc.export('csc_sprealloc_f', "Tuple((i4[:], f8[:], i8))(i8, i4[:], i4[:], f8[:], i8)")
 @nb.njit("Tuple((i4[:], f8[:], i8))(i8, i4[:], i4[:], f8[:], i8)")
 def csc_sprealloc_f(An, Aindptr, Aindices, Adata, nzmax):
     """
@@ -136,7 +122,6 @@ def csc_sprealloc_f(An, Aindptr, Aindices, Adata, nzmax):
     return Ainew, Axnew, nzmax
 
 
-@cc.export("csc_scatter_f", "i8(i4[:], i4[:], f8[:], i8, f8, i4[:], f8[:], i8, i4[:], i8)")
 @nb.njit("i8(i4[:], i4[:], f8[:], i8, f8, i4[:], f8[:], i8, i4[:], i8)")
 def csc_scatter_f(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
     """
@@ -166,7 +151,6 @@ def csc_scatter_f(Ap, Ai, Ax, j, beta, w, x, mark, Ci, nz):
     return nz
 
 
-@cc.export("csc_scatter_ff", "i8(i4[:], i4[:], f8[:], i8, f8, i4[:], f8[:], i8, i4[:], i8)")
 @nb.njit("i8(i4[:], i4[:], f8[:], i8, f8, i4[:], f8[:], i8, i4[:], i8)")
 def csc_scatter_ff(Aindptr, Aindices, Adata, j, beta, w, x, mark, Ci, nz):
     """
@@ -196,7 +180,6 @@ def csc_scatter_ff(Aindptr, Aindices, Adata, j, beta, w, x, mark, Ci, nz):
     return nz
 
 
-@cc.export("csc_add_ff", "Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:], f8, f8)")
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:], f8, f8)")
 def csc_add_ff(Am, An, Aindptr, Aindices, Adata,
                Bm, Bn, Bindptr, Bindices, Bdata, alpha, beta):
@@ -236,7 +219,6 @@ def csc_add_ff(Am, An, Aindptr, Aindices, Adata,
     return Cm, Cn, Cp, Ci, Cx  # success; free workspace, return C
 
 
-@cc.export("csc_multiply_ff", "Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])")
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:], i8))(i8, i8, i4[:], i4[:], f8[:], i8, i8, i4[:], i4[:], f8[:])",
          parallel=False, nogil=True, fastmath=False, cache=True)  # fastmath=True breaks the code
 def csc_multiply_ff(Am, An, Ap, Ai, Ax,
@@ -324,7 +306,6 @@ def csc_multiply_ff(Am, An, Ap, Ai, Ax,
     return Cm, Cn, Cp, Cinew, Cxnew, Cnzmax
 
 
-@cc.export("csc_mat_vec_ff", "f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])")
 @nb.njit("f8[:](i8, i8, i4[:], i4[:], f8[:], f8[:])", parallel=False)
 def csc_mat_vec_ff(m, n, Ap, Ai, Ax, x):
     """
@@ -347,8 +328,6 @@ def csc_mat_vec_ff(m, n, Ap, Ai, Ax, x):
     return y
 
 
-
-@cc.export("coo_to_csc", "Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8)")
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i8)")
 def coo_to_csc(m, n, Ti, Tj, Tx, nz):
     """
@@ -378,7 +357,6 @@ def coo_to_csc(m, n, Ti, Tj, Tx, nz):
     return Cm, Cn, Cp, Ci, Cx
 
 
-@cc.export("csc_to_csr", "void(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:], f8[:])")
 @nb.njit("void(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:], f8[:])")
 def csc_to_csr(m, n, Ap, Ai, Ax, Bp, Bi, Bx):
     """
@@ -418,7 +396,7 @@ def csc_to_csr(m, n, Ap, Ai, Ax, Bp, Bi, Bx):
         Bp[col] = last
         last = temp
 
-@cc.export("csc_transpose", "Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:])")
+
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:])")
 def csc_transpose(m, n, Ap, Ai, Ax):
     """
@@ -458,50 +436,149 @@ def csc_transpose(m, n, Ap, Ai, Ax):
     return Cm, Cn, Cp, Ci, Cx
 
 
-@cc.export("csc_sub_matrix", "Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:])")
-@nb.njit("Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:])")
+@nb.njit("i4(i4, i4, i4[:])")
+def binary_find(N, x, array):
+    """
+    Binary search
+    :param N: size of the array
+    :param x: value
+    :param array: array
+    :return: position where it is found. -1 if it is not found
+    """
+    lower = 0
+    upper = N
+
+    while (lower + 1) < upper:
+        mid = int((lower + upper) / 2)
+        if x < array[mid]:
+            upper = mid
+        else:
+            lower = mid
+
+    if array[lower] <= x:
+        return lower
+    return -1
+
+
+# @nb.njit("Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:], i4[:])")
 def csc_sub_matrix(Am, Anz, Ap, Ai, Ax, rows, cols):
     """
     Get SCS arbitrary sub-matrix
-    :param A: CSC matrix
+    :param Am: number of rows
+    :param Anz: number of non-zero entries
+    :param Ap: Column pointers
+    :param Ai: Row indices
+    :param Ax: Data
     :param rows: row indices to keep
     :param cols: column indices to keep
     :return: CSC sub-matrix (n, new_col_ptr, new_row_ind, new_val)
     """
-    n_rows = len(rows)
+    n_cols = len(cols)
+
+    Bx = np.zeros(Anz, dtype=np.float64)
+    Bi = np.empty(Anz, dtype=np.int32)
+    Bp = np.empty(n_cols + 1, dtype=np.int32)
+
     n = 0
     p = 0
-    Bx = xalloc(Anz)
-    Bi = ialloc(Anz)
-    Bp = ialloc(Am + 1)
-
     Bp[p] = 0
 
     for j in cols:  # for each column selected ...
-        for k in range(Ap[j], Ap[j + 1]):  # for each row of the column j of A...
-            # search row_ind[k] in rows
-            found = False
-            found_idx = 0
-            while not found and found_idx < n_rows:
-                if Ai[k] == rows[found_idx]:
-                    found = True
-                found_idx += 1
-
-            # store the values if the row was found in rows
-            if found:  # if the row index is in the designated rows...
-                Bx[n] = Ax[k]  # store the value
-                Bi[n] = found_idx - 1  # store the index where the original index was found inside "rows"
-                n += 1
+        i = 0
+        for r in rows:
+            for k in range(Ap[j], Ap[j + 1]):  # for each row of the column j of A...
+                if Ai[k] == r:
+                    Bx[n] = Ax[k]  # store the value
+                    Bi[n] = i  # row index in the new matrix
+                    i += 1
+                    n += 1
+            if i == 0:
+                i += 1
         p += 1
         Bp[p] = n
 
     Bp[p] = n
 
-    return n, Bp, Bi, Bx
+    return n, Bp, Bi[:n], Bx[:n]
 
 
-@cc.export("csc_to_dense", "f8[:, :](i8, i8, i4[:], i4[:], f8[:])")
-@nb.njit("f8[:, :](i8, i8, i4[:], i4[:], f8[:])")
+@nb.njit("Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:])")
+def csc_sub_matrix_cols(Am, Anz, Ap, Ai, Ax, cols):
+    """
+    Get SCS arbitrary sub-matrix with all the rows
+    :param Am: number of rows
+    :param Anz: number of non-zero entries
+    :param Ap: Column pointers
+    :param Ai: Row indices
+    :param Ax: Data
+    :param cols: column indices to keep
+    :return: CSC sub-matrix (n, new_col_ptr, new_row_ind, new_val)
+    """
+
+    n_cols = len(cols)
+    n = 0
+    p = 0
+    Bx = np.empty(Anz, dtype=nb.float64)
+    Bi = np.empty(Anz, dtype=nb.int32)
+    Bp = np.empty(n_cols + 1, dtype=nb.int32)
+
+    Bp[p] = 0
+
+    for j in cols:  # for each column selected ...
+        for k in range(Ap[j], Ap[j + 1]):  # for each row of the column j of A...
+            # store the values if the row was found in rows
+            Bx[n] = Ax[k]  # store the value
+            Bi[n] = Ai[k]  # store the row index
+            n += 1
+        p += 1
+        Bp[p] = n
+
+    Bp[p] = n
+
+    return n, Bp, Bi[:n], Bx[:n]
+
+
+# @nb.njit("Tuple((i8, i4[:], i4[:], f8[:]))(i8, i8, i4[:], i4[:], f8[:], i4[:])")
+def csc_sub_matrix_rows(An, Anz, Ap, Ai, Ax, rows):
+    """
+    Get SCS arbitrary sub-matrix
+    :param An: number of rows
+    :param Anz: number of non-zero entries
+    :param Ap: Column pointers
+    :param Ai: Row indices
+    :param Ax: Data
+    :param rows: row indices to keep
+    :return: CSC sub-matrix (n, new_col_ptr, new_row_ind, new_val)
+    """
+    n_rows = len(rows)
+    n = 0
+    p = 0
+    Bx = np.zeros(Anz, dtype=np.float64)
+    Bi = np.empty(Anz, dtype=np.int32)
+    Bp = np.empty(An + 1, dtype=np.int32)
+
+    Bp[p] = 0
+
+    for j in range(An):  # for each column selected ...
+        i = 0
+        for r in rows:
+            for k in range(Ap[j], Ap[j + 1]):  # for each row of the column j of A...
+                if Ai[k] == r:
+                    Bx[n] = Ax[k]  # store the value
+                    Bi[n] = i  # row index in the new matrix
+                    n += 1
+                i += 1
+            if i == 0:
+                i += 1
+        p += 1
+        Bp[p] = n
+
+    Bp[p] = n
+
+    return n, Bp, Bi[:n], Bx[:n]
+
+
+# @nb.njit("f8[:, :](i8, i8, i4[:], i4[:], f8[:])")
 def csc_to_dense(m, n, indptr, indices, data):
     """
     Convert csc matrix to dense
@@ -512,7 +589,7 @@ def csc_to_dense(m, n, indptr, indices, data):
     :param data:
     :return: 2d numpy array
     """
-    val = np.zeros((m, n), dtype=nb.float64)
+    val = np.zeros((m, n), dtype=np.float64)
 
     for j in range(n):
         for p in range(indptr[j], indptr[j + 1]):
@@ -520,7 +597,6 @@ def csc_to_dense(m, n, indptr, indices, data):
     return val
 
 
-@cc.export("csc_diagonal", "Tuple((i4[:], i4[:], f8[:]))(i8, f8)")
 @nb.njit("Tuple((i4[:], i4[:], f8[:]))(i8, f8)")
 def csc_diagonal(m, value=1.0):
     """
@@ -541,7 +617,6 @@ def csc_diagonal(m, value=1.0):
     return indices, indptr, data
 
 
-@cc.export("csc_diagonal_from_array", "Tuple((i4[:], i4[:], f8[:]))(i8, f8[:])")
 @nb.njit("Tuple((i4[:], i4[:], f8[:]))(i8, f8[:])")
 def csc_diagonal_from_array(m, array):
     """
@@ -562,12 +637,6 @@ def csc_diagonal_from_array(m, array):
     return indices, indptr, data
 
 
-@cc.export("csc_stack_4_by_4_ff",
-           "Tuple((i8, i8, i4[:], i4[:], f8[:]))"
-           "(i8, i8, i4[:], i4[:], f8[:], "
-           "i8, i8, i4[:], i4[:], f8[:], "
-           "i8, i8, i4[:], i4[:], f8[:], "
-           "i8, i8, i4[:], i4[:], f8[:])")
 @nb.njit("Tuple((i8, i8, i4[:], i4[:], f8[:]))"
          "(i8, i8, i4[:], i4[:], f8[:], "
          "i8, i8, i4[:], i4[:], f8[:], "
@@ -651,7 +720,6 @@ def csc_stack_4_by_4_ff(am, an, Ai, Ap, Ax,
     return m, n, indices, indptr, data
 
 
-@cc.export("csc_norm", "f8(i8, i4[:], f8[:])")
 @nb.njit("f8(i8, i4[:], f8[:])")
 def csc_norm(n, Ap, Ax):
     """

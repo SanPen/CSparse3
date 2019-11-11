@@ -18,7 +18,7 @@
 # Foundation, Inc, 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
 
 """
-THis is the pure python version where the cython code is outlined
+This is the pure python version where the cython code is outlined
 CSparse3.py: a Concise Sparse matrix Python package
 
 @author: Timothy A. Davis

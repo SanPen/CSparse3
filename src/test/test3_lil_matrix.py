@@ -1,8 +1,6 @@
 import numpy as np
 from CSparse3 import LilMat
 
-
-
 '''
 name	    bus_from	bus_to	active	rate	mttf	mttr	R	    X	    G	    B
 Branch 1	Bus 3	    Bus 1	TRUE	70	    0	    0	    0.05	0.11	1E-20	0.02
@@ -12,8 +10,6 @@ Branch 1	Bus 5	    Bus 2	TRUE	10	    0	    0	    0.04	0.09	1E-20	0.02
 Branch 1	Bus 5	    Bus 1	TRUE	90	    0	    0	    0.03	0.08	1E-20	0.02
 Branch 1	Bus 2	    Bus 1	TRUE	60	    0	    0	    0.05	0.11	1E-20	0.02
 Branch 1	Bus 2	    Bus 3	TRUE	20	    0	    0	    0.04	0.09	1E-20	0.02
-
-
 '''
 
 

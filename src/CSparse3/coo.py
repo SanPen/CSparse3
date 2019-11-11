@@ -50,7 +50,7 @@ class CooMat:
         self.rows = ialloc(nz_max)
 
         # numerical values, size nzmax
-        self.data = values if values else xalloc(nz_max)
+        self.data = values if values else xalloc_f(nz_max)
 
         # # of entries in triplet matrix, -1 for compressed-col
         self.nz = len(self.data)
