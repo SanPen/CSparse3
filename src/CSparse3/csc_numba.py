@@ -567,7 +567,7 @@ def csc_sub_matrix_rows(An, Anz, Ap, Ai, Ax, rows):
                     Bx[n] = Ax[k]  # store the value
                     Bi[n] = i  # row index in the new matrix
                     n += 1
-                i += 1
+                    i += 1
             if i == 0:
                 i += 1
         p += 1
